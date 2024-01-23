@@ -13,7 +13,7 @@ def continuous_dice_coefficient(y_true, y_pred):
     This function first flattens the input tensors, and then calculates the
     CDC based on the formula:
         CDC = 2 * |G ∩ S| / (c * |G| + |S|),
-    where G is the ground truth
+    where G is the ground truth, S is the 
     """
     y_true = layers.Flatten()(y_true)
     y_pred = layers.Flatten()(y_pred)
