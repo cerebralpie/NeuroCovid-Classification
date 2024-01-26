@@ -2,6 +2,8 @@
 File's docstring - To be done
 """
 import tensorflow as tf
+import pydicom
+from pathlib import Path
 
 
 def configure_gpu():
@@ -35,3 +37,12 @@ def configure_gpu():
     else:
         strategy = tf.distribute.get_strategy()
         print("\nNumber of replicas: ", strategy.num_replicas_in_sync)
+
+
+def dicom_to_tensor(dicom_file_path: Path) -> tf.Tensor:
+    ds = pydicom.dcmread(fp=dicom_file_path)
+    image_array = ds.pixel_array
+
+    tensor = tf.convert_to_tensor(image_array, dtype=tf.float32)
+
+    return tensor
