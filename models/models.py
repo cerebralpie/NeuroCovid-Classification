@@ -1,16 +1,17 @@
 import tensorflow as tf
+import segmentation_models as sm
 from tensorflow.keras.models import Model
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras.layers import (
-    BatchNormalization, Conv2D, Conv2DTranspose,
-    MaxPooling2D, Dropout, Input, concatenate, Cropping2D
+    Conv2D, Conv2DTranspose, MaxPooling2D, Dropout,
+    Input, concatenate, Cropping2D
 )
 
 from keras_unet.models.custom_unet import conv2d_block
 from keras_unet.models.vanilla_unet import get_crop_shape
 
 
-def standard_unet(input_shape, num_classes: int = 1):
+def standard_unet(input_shape, num_classes=1):
 
     inputs = Input(shape=input_shape)
     x = inputs
@@ -50,3 +51,7 @@ def standard_unet(input_shape, num_classes: int = 1):
 
     model = Model(inputs=[inputs], outputs=[outputs])
     return model
+
+
+def vgg19_unet(input_shape, num_classes=1):
+    pass

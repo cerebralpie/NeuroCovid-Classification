@@ -40,8 +40,8 @@ def configure_gpu():
 
 
 def dicom_to_tensor(dicom_file_path: Path) -> tf.Tensor:
-    ds = pydicom.dcmread(fp=dicom_file_path)
-    image_array = ds.pixel_array
+    file = pydicom.dcmread(fp=dicom_file_path)
+    image_array = file.pixel_array
 
     tensor = tf.convert_to_tensor(image_array, dtype=tf.float32)
 
