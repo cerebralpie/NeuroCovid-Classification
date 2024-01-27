@@ -107,7 +107,8 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     # Calculate pairwise distances
     distances_y_true = tf.norm(g_coords_expanded - s_coords_expanded, axis=2)
-    distances_y_pred = tf.norm(g_coords_expanded_swapped - s_coords_expanded_swapped, axis=2)
+    distances_y_pred = tf.norm(g_coords_expanded_swapped -
+                               s_coords_expanded_swapped, axis=2)
 
     # Find minimum distances (optional)
     min_distances_y_true = tf.reduce_min(distances_y_true, axis=1)
@@ -121,14 +122,15 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
 def surface_distance_metric(y_true, y_pred, voxel_spacing=(1.0, 1.0, 1.0)):
     """
-    Calculate the average surface distance metric between two segmentation masks.
+    Calculate the average surface distance between two segmentation masks.
 
     Args:
         y_true: Ground truth segmentation mask.
         y_pred: Predicted segmentation mask.
-        voxel_spacing: Tuple specifying the voxel spacing in each dimension (x, y, z).
-        Returns:
-        Average surface distance.
+        voxel_spacing: Tuple specifying the voxel spacing in each dimension
+        (x, y, z).
+    Returns:
+        The Average surface distance.
     """
     # Ensure tensors have the same shape
     tf.debugging.assert_shapes([(y_true, ('B', 'H', 'W', 'D')),
