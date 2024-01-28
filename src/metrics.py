@@ -34,22 +34,22 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     size_of_g = tf.reduce_sum(y_true)
     size_of_s = tf.reduce_sum(y_pred)
 
-    if size_of_g == 0.0:
-        if size_of_s == 0.0:
-            return tf.constant(float(1.0), dtype=tf.float32)
+    if tf.equal(size_of_g, 0.0):
+        if tf.equal(size_of_s, 0.0):
+            cdc_value = tf.constant(float(1.0), dtype=tf.float32)
         else:
-            return tf.constant(float(0.0), dtype=tf.float32)
-    elif size_of_s == 0.0:
-        return tf.constant(float(0.0), dtype=tf.float32)
-
-    if size_of_g_intersect_s > 0:
-        c = size_of_g_intersect_s / tf.reduce_sum(y_true * sign_of_s)
+            cdc_value = tf.constant(float(0.0), dtype=tf.float32)
+    elif tf.equal(size_of_s, 0.0):
+        cdc_value = tf.constant(float(0.0), dtype=tf.float32)
     else:
-        c = 1
+        if tf.greater(size_of_g_intersect_s, 0.0):
+            c = size_of_g_intersect_s / tf.reduce_sum(y_true * sign_of_s)
+        else:
+            c = 1.0
 
-    cdc_numerator = 2 * size_of_g_intersect_s
-    cdc_denominator = (c * size_of_g) + size_of_s
-    cdc_value = (cdc_numerator / cdc_denominator)
+        cdc_numerator = 2 * size_of_g_intersect_s
+        cdc_denominator = (c * size_of_g) + size_of_s
+        cdc_value = (cdc_numerator / cdc_denominator)
 
     return cdc_value
 
@@ -81,41 +81,46 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     size_of_g = tf.shape(g_coords)[0]
     size_of_s = tf.shape(s_coords)[0]
 
-    size_of_g = tf.cast(size_of_g, tf.float32)
-    size_of_s = tf.cast(size_of_s, tf.float32)
+    size_of_g = tf.constant(size_of_g, dtype=tf.int8)
+    size_of_s = tf.constant(size_of_s, dtype=tf.int8)
 
-    if size_of_g == 0.0:
-        if size_of_s == 0.0:
-            return tf.constant(float(0.0), dtype=tf.float32)
+    if tf.equal(size_of_g, 0):
+        if tf.equal(size_of_s, 0):
+            bahd_value = tf.constant(float(0.0), dtype=tf.float32)
         else:
-            return tf.constant(float('inf'), dtype=tf.float32)
-    elif size_of_s == 0.0:
-        return tf.constant(float('inf'), dtype=tf.float32)
+            bahd_value = tf.constant(float('inf'), dtype=tf.float32)
+    elif tf.equal(size_of_s, 0):
+        bahd_value = tf.constant(float('inf'), dtype=tf.float32)
+    else:
+        # Expand dimensions for pairwise operations
+        g_coords_expanded = tf.expand_dims(g_coords, axis=1)
+        s_coords_expanded = tf.expand_dims(s_coords, axis=0)
 
-    # Expand dimensions for pairwise operations
-    g_coords_expanded = tf.expand_dims(g_coords, axis=1)
-    s_coords_expanded = tf.expand_dims(s_coords, axis=0)
+        g_coords_expanded = tf.cast(g_coords_expanded, tf.float32)
+        s_coords_expanded = tf.cast(s_coords_expanded, tf.float32)
 
-    g_coords_expanded = tf.cast(g_coords_expanded, tf.float32)
-    s_coords_expanded = tf.cast(s_coords_expanded, tf.float32)
+        g_coords_expanded_swapped = tf.expand_dims(g_coords, axis=0)
+        s_coords_expanded_swapped = tf.expand_dims(s_coords, axis=1)
 
-    g_coords_expanded_swapped = tf.expand_dims(g_coords, axis=0)
-    s_coords_expanded_swapped = tf.expand_dims(s_coords, axis=1)
+        g_coords_expanded_swapped = tf.cast(g_coords_expanded_swapped,
+                                            tf.float32)
+        s_coords_expanded_swapped = tf.cast(s_coords_expanded_swapped,
+                                            tf.float32)
 
-    g_coords_expanded_swapped = tf.cast(g_coords_expanded_swapped, tf.float32)
-    s_coords_expanded_swapped = tf.cast(s_coords_expanded_swapped, tf.float32)
+        # Calculate pairwise distances
+        distances_y_true = tf.norm(g_coords_expanded - s_coords_expanded,
+                                   axis=2)
+        distances_y_pred = tf.norm(g_coords_expanded_swapped -
+                                   s_coords_expanded_swapped, axis=2)
 
-    # Calculate pairwise distances
-    distances_y_true = tf.norm(g_coords_expanded - s_coords_expanded, axis=2)
-    distances_y_pred = tf.norm(g_coords_expanded_swapped -
-                               s_coords_expanded_swapped, axis=2)
+        # Find minimum distances (optional)
+        min_distances_y_true = tf.reduce_min(distances_y_true, axis=1)
+        min_distances_y_pred = tf.reduce_min(distances_y_pred, axis=1)
 
-    # Find minimum distances (optional)
-    min_distances_y_true = tf.reduce_min(distances_y_true, axis=1)
-    min_distances_y_pred = tf.reduce_min(distances_y_pred, axis=1)
+        size_of_g = tf.cast(size_of_g, tf.float32)
 
-    bahd_value = (tf.reduce_sum(min_distances_y_true) / size_of_g +
-                  tf.reduce_sum(min_distances_y_pred) / size_of_g) / 2.0
+        bahd_value = (tf.reduce_sum(min_distances_y_true) / size_of_g +
+                      tf.reduce_sum(min_distances_y_pred) / size_of_g) / 2.0
 
     return bahd_value
 
