@@ -36,7 +36,7 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     if size_of_g == 0.0:
         if size_of_s == 0.0:
-            return tf.constant(1.0, dtype=tf.float32)
+            return tf.constant(float(1.0), dtype=tf.float32)
         else:
             return tf.constant(float(0.0), dtype=tf.float32)
     elif size_of_s == 0.0:
@@ -86,7 +86,7 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
     if size_of_g == 0.0:
         if size_of_s == 0.0:
-            return tf.constant(0.0, dtype=tf.float32)
+            return tf.constant(float(0.0), dtype=tf.float32)
         else:
             return tf.constant(float('inf'), dtype=tf.float32)
     elif size_of_s == 0.0:
