@@ -43,13 +43,14 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         cdc_value = tf.constant(float(0.0), dtype=tf.float32)
     else:
         if tf.greater(size_of_g_intersect_s, 0.0).numpy():
-            c = size_of_g_intersect_s / tf.reduce_sum(y_true * sign_of_s)
+            c = size_of_g_intersect_s / (tf.reduce_sum(y_true * sign_of_s) +
+                                         1e-7)
         else:
             c = 1.0
 
         cdc_numerator = 2 * size_of_g_intersect_s
         cdc_denominator = (c * size_of_g) + size_of_s
-        cdc_value = (cdc_numerator / cdc_denominator)
+        cdc_value = (cdc_numerator / (cdc_denominator + 1e-7))
 
     return cdc_value
 
@@ -119,8 +120,10 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
         size_of_g = tf.cast(size_of_g, tf.float32)
 
-        bahd_value = (tf.reduce_sum(min_distances_y_true) / size_of_g +
-                      tf.reduce_sum(min_distances_y_pred) / size_of_g) / 2.0
+        bahd_value = (tf.reduce_sum(min_distances_y_true) /
+                      (size_of_g + 1e-7) +
+                      tf.reduce_sum(min_distances_y_pred) /
+                      (size_of_g + 1e-7)) / 2.0
 
     return bahd_value
 
