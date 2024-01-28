@@ -34,15 +34,15 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     size_of_g = tf.reduce_sum(y_true)
     size_of_s = tf.reduce_sum(y_pred)
 
-    if tf.equal(size_of_g, 0.0):
-        if tf.equal(size_of_s, 0.0):
+    if tf.equal(size_of_g, 0.0).numpy():
+        if tf.equal(size_of_s, 0.0).numpy():
             cdc_value = tf.constant(float(1.0), dtype=tf.float32)
         else:
             cdc_value = tf.constant(float(0.0), dtype=tf.float32)
-    elif tf.equal(size_of_s, 0.0):
+    elif tf.equal(size_of_s, 0.0).numpy():
         cdc_value = tf.constant(float(0.0), dtype=tf.float32)
     else:
-        if tf.greater(size_of_g_intersect_s, 0.0):
+        if tf.greater(size_of_g_intersect_s, 0.0).numpy():
             c = size_of_g_intersect_s / tf.reduce_sum(y_true * sign_of_s)
         else:
             c = 1.0
@@ -84,12 +84,12 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     size_of_g = tf.constant(size_of_g, dtype=tf.int8)
     size_of_s = tf.constant(size_of_s, dtype=tf.int8)
 
-    if tf.equal(size_of_g, 0):
-        if tf.equal(size_of_s, 0):
+    if tf.equal(size_of_g, 0).numpy():
+        if tf.equal(size_of_s, 0).numpy():
             bahd_value = tf.constant(float(0.0), dtype=tf.float32)
         else:
             bahd_value = tf.constant(float('inf'), dtype=tf.float32)
-    elif tf.equal(size_of_s, 0):
+    elif tf.equal(size_of_s, 0).numpy():
         bahd_value = tf.constant(float('inf'), dtype=tf.float32)
     else:
         # Expand dimensions for pairwise operations
