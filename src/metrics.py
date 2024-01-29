@@ -20,7 +20,7 @@ class ContinuousDiceCoefficient(tf.keras.metrics.Metric):
         size_of_g = tf.reduce_sum(y_true_flat)
         size_of_s = tf.reduce_sum(y_pred_flat)
 
-        c = tf.cond(pred=tf.greater(size_of_g_intersect_s, tf.constant(0)),
+        c = tf.cond(pred=tf.greater(size_of_g_intersect_s, tf.constant(0.0)),
                     true_fn=lambda: tf.divide(size_of_g_intersect_s,
                                               tf.reduce_sum(
                                                   tf.multiply(y_true,sign_of_s)
@@ -31,14 +31,14 @@ class ContinuousDiceCoefficient(tf.keras.metrics.Metric):
         cdc_denominator = tf.add(tf.multiply(c, size_of_g), size_of_s)
 
         cdc_value = tf.cond(
-            pred=tf.equal(size_of_g, tf.constant(0)),
+            pred=tf.equal(size_of_g, tf.constant(0.0)),
             true_fn=lambda: tf.cond(
-                pred=tf.equal(size_of_s, tf.constant(0)),
+                pred=tf.equal(size_of_s, tf.constant(0.0)),
                 true_fn=lambda: tf.constant(1.0),
                 false_fn=lambda: tf.constant(0.0)
             ),
             false_fn=lambda: tf.cond(
-                pred=tf.equal(size_of_s, tf.constant(0)),
+                pred=tf.equal(size_of_s, tf.constant(0.0)),
                 true_fn=lambda: tf.constant(0.0),
                 false_fn=lambda: tf.divide(cdc_numerator, cdc_denominator)
             )
