@@ -5,6 +5,51 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 
+class ContinuousDiceCoefficient(tf.keras.metrics.Metric):
+    def __init__(self, name='continuous_dice_coefficient', **kwargs):
+        super(ContinuousDiceCoefficient, self).__init__(name=name, **kwargs)
+        self.cdc_value = None
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        y_true_flat = layers.Flatten()(y_true)
+        y_pred_flat = layers.Flatten()(y_pred)
+
+        sign_of_s = tf.sign(y_pred_flat)
+        size_of_g_intersect_s = tf.reduce_sum(tf.multiply(y_true_flat,
+                                                          y_pred_flat))
+        size_of_g = tf.reduce_sum(y_true_flat)
+        size_of_s = tf.reduce_sum(y_pred_flat)
+
+        c = tf.cond(pred=tf.greater(size_of_g_intersect_s, tf.constant(0)),
+                    true_fn=lambda: tf.divide(size_of_g_intersect_s,
+                                              tf.reduce_sum(
+                                                  tf.multiply(y_true,sign_of_s)
+                                              )),
+                    false_fn=lambda: tf.constant(1.0)
+                    )
+        cdc_numerator = tf.multiply(tf.constant(2.0), size_of_g_intersect_s)
+        cdc_denominator = tf.add(tf.multiply(c, size_of_g), size_of_s)
+
+        cdc_value = tf.cond(
+            pred=tf.equal(size_of_g, tf.constant(0)),
+            true_fn=lambda: tf.cond(
+                pred=tf.equal(size_of_s, tf.constant(0)),
+                true_fn=lambda: tf.constant(1.0),
+                false_fn=lambda: tf.constant(0.0)
+            ),
+            false_fn=lambda: tf.cond(
+                pred=tf.equal(size_of_s, tf.constant(0)),
+                true_fn=lambda: tf.constant(0.0),
+                false_fn=lambda: tf.divide(cdc_numerator, cdc_denominator)
+            )
+        )
+
+        self.cdc_value = cdc_value
+
+    def result(self):
+        return self.cdc_value
+
+
 def cdc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
     For a binary segmentation task, calculate the Continuous Dice Coefficient
