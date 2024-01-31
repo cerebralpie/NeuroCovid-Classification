@@ -2,6 +2,7 @@
 File's docstring - To be done
 """
 import tensorflow as tf
+import tensorflow_io as tfio
 import pydicom
 import cv2
 from pathlib import Path
@@ -119,7 +120,7 @@ def load_data(root_dir: Path, split=0.1):
         return None
 
 
-def read_image(path: Path, image_shape: tuple[int, int]):
+def read_image(image_path: Path, image_shape: tuple[int, int]):
     """
     Read, resize, and preprocess an image from a given path.
 
@@ -127,12 +128,12 @@ def read_image(path: Path, image_shape: tuple[int, int]):
     desired 'image_shape', and normalizes pixel values to the range [0, 1].
 
     Args:
-        path: pathlib.Path object to the image file.
+        image_path: pathlib.Path object to the image file.
         image_shape: Desired shape (width and height) of the resized image.
 
     Returns:
-        A NumPy array representing the preprocessed image, or None if an error
-        occurs during reading or processing.
+        A NumPy array representing the preprocessed RBG image, or None if an
+        error occurs during reading or processing.
 
     Raises:
         FileNotFoundError: If the image file cannot be found at the given path.
@@ -140,17 +141,27 @@ def read_image(path: Path, image_shape: tuple[int, int]):
                    OpenCV.
     """
     try:
-        path = str(path)
-        image = cv2.imread(path, cv2.IMREAD_COLOR)
+        if image_path.suffix.lower() in [".dcm", ".dicom"]:
+            image_bytes = tf.io.read_file(image_path)
+            image_tensor = tfio.image.decode_dicom_image(image_bytes,
+                                                         dtype=tf.uint8,
+                                                         color_dim=True,
+                                                         on_error='lossy')
+            image_array = image_tensor.numpy()
+        else:
+            path = str(image_path)
+            image_array = cv2.imread(path, cv2.IMREAD_COLOR)
 
-        if image is None:
-            raise FileNotFoundError(f"Image not found at path: {path}")
+            if image_array is None:
+                raise FileNotFoundError(f"Image not found at path: {path}")
 
-        image = cv2.resize(image, image_shape)
-        image = image / 255.0
-
-        return image
+            image_array = cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB)
 
     except (FileNotFoundError, cv2.error) as e:
         print(f"Error reading image: {e}")
         return None
+
+    image_array = cv2.resize(image_array, image_shape)
+    image_array = image_array / 255.0
+
+    return image_array
