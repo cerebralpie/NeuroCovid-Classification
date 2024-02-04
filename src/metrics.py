@@ -5,52 +5,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 
-class ContinuousDiceCoefficient(tf.keras.metrics.Metric):
-    def __init__(self, name='continuous_dice_coefficient', **kwargs):
-        super(ContinuousDiceCoefficient, self).__init__(name=name, **kwargs)
-        self.cdc_value = None
-
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        y_true_flat = layers.Flatten()(y_true)
-        y_pred_flat = layers.Flatten()(y_pred)
-
-        sign_of_s = tf.sign(y_pred_flat)
-        size_of_g_intersect_s = tf.reduce_sum(tf.multiply(y_true_flat,
-                                                          y_pred_flat))
-        size_of_g = tf.reduce_sum(y_true_flat)
-        size_of_s = tf.reduce_sum(y_pred_flat)
-
-        c = tf.cond(pred=tf.greater(size_of_g_intersect_s, tf.constant(0.0)),
-                    true_fn=lambda: tf.divide(size_of_g_intersect_s,
-                                              tf.reduce_sum(
-                                                  tf.multiply(y_true,sign_of_s)
-                                              )),
-                    false_fn=lambda: tf.constant(1.0)
-                    )
-        cdc_numerator = tf.multiply(tf.constant(2.0), size_of_g_intersect_s)
-        cdc_denominator = tf.add(tf.multiply(c, size_of_g), size_of_s)
-
-        cdc_value = tf.cond(
-            pred=tf.equal(size_of_g, tf.constant(0.0)),
-            true_fn=lambda: tf.cond(
-                pred=tf.equal(size_of_s, tf.constant(0.0)),
-                true_fn=lambda: tf.constant(1.0),
-                false_fn=lambda: tf.constant(0.0)
-            ),
-            false_fn=lambda: tf.cond(
-                pred=tf.equal(size_of_s, tf.constant(0.0)),
-                true_fn=lambda: tf.constant(0.0),
-                false_fn=lambda: tf.divide(cdc_numerator, cdc_denominator)
-            )
-        )
-
-        self.cdc_value = cdc_value
-
-    def result(self):
-        return self.cdc_value
-
-
-def cdc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
     """
     For a binary segmentation task, calculate the Continuous Dice Coefficient
     given a ground truth G (y_true) and a predicted segmentation S (y_pred).
@@ -74,28 +29,27 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     y_true = layers.Flatten()(y_true)
     y_pred = layers.Flatten()(y_pred)
 
+    y_true = tf.cast(y_true, tf.float32)
+    y_pred = tf.cast(y_pred, tf.float32)
+
     sign_of_s = tf.sign(y_pred)
     size_of_g_intersect_s = tf.reduce_sum(y_true * y_pred)
     size_of_g = tf.reduce_sum(y_true)
     size_of_s = tf.reduce_sum(y_pred)
 
-    if tf.equal(size_of_g, 0.0).numpy():
-        if tf.equal(size_of_s, 0.0).numpy():
-            cdc_value = tf.constant(float(1.0), dtype=tf.float32)
-        else:
-            cdc_value = tf.constant(float(0.0), dtype=tf.float32)
-    elif tf.equal(size_of_s, 0.0).numpy():
-        cdc_value = tf.constant(float(0.0), dtype=tf.float32)
-    else:
-        if tf.greater(size_of_g_intersect_s, 0.0).numpy():
-            c = size_of_g_intersect_s / (tf.reduce_sum(y_true * sign_of_s) +
-                                         1e-7)
-        else:
-            c = 1.0
+    c_numerator = size_of_g_intersect_s
+    c_denominator = tf.reduce_sum(y_true * sign_of_s)
 
-        cdc_numerator = 2 * size_of_g_intersect_s
-        cdc_denominator = (c * size_of_g) + size_of_s
-        cdc_value = (cdc_numerator / (cdc_denominator + 1e-7))
+    c = tf.cond(
+        pred=tf.equal(c_denominator,
+                      tf.cast(tf.constant(0.0), c_denominator.dtype)),
+        true_fn=lambda: tf.constant(1.0, dtype=tf.float32),
+        false_fn=lambda: (c_numerator / c_denominator)
+    )
+
+    cdc_numerator = 2 * size_of_g_intersect_s
+    cdc_denominator = (c * size_of_g) + size_of_s
+    cdc_value = ((cdc_numerator + smooth) / (cdc_denominator + smooth))
 
     return cdc_value
 
@@ -119,58 +73,49 @@ def cdc_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     return 1.0 - cdc(y_true=y_true, y_pred=y_pred)
 
 
-def bahd(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
+    def _min_distances(set1: tf.Tensor, set2: tf.Tensor) -> tf.Tensor:
+        # set1 and set2 are tensors of shape (n, d) and (m, d) respectively,
+        # where n and m are the number of points in each set, and d is the
+        # dimensionality of the points
 
-    g_coords = tf.where(y_true == 1)
-    s_coords = tf.where(y_pred == 1)
+        # Expand dimensions of the tensors for broadcasting. After expansion,
+        # set1_exp has shape (n, 1, d) and set2_exp has shape (1, m, d), which
+        # means they'll always be broadcast-compatible
+        set1_exp = tf.expand_dims(set1, 1)
+        set2_exp = tf.expand_dims(set2, 0)
 
-    size_of_g = tf.shape(g_coords)[0]
-    size_of_s = tf.shape(s_coords)[0]
+        # Compute the squared differences
+        # Broadcasting allows us to subtract the two tensors as if they had the
+        # same shape
+        # sq_diff has shape (n, m, d)
+        sq_diff = tf.square(set1_exp - set2_exp)
 
-    size_of_g = tf.constant(size_of_g, dtype=tf.int8)
-    size_of_s = tf.constant(size_of_s, dtype=tf.int8)
+        # Sum over the last dimension to get the squared norms
+        # sq_norms has shape (n, m)
+        sq_norms = tf.reduce_sum(sq_diff, axis=-1)
 
-    if tf.equal(size_of_g, 0).numpy():
-        if tf.equal(size_of_s, 0).numpy():
-            bahd_value = tf.constant(float(0.0), dtype=tf.float32)
-        else:
-            bahd_value = tf.constant(float('inf'), dtype=tf.float32)
-    elif tf.equal(size_of_s, 0).numpy():
-        bahd_value = tf.constant(float('inf'), dtype=tf.float32)
-    else:
-        # Expand dimensions for pairwise operations
-        g_coords_expanded = tf.expand_dims(g_coords, axis=1)
-        s_coords_expanded = tf.expand_dims(s_coords, axis=0)
+        # Find the minimum squared norm along the second dimension
+        # min_sq_norms has shape (n,)
+        min_sq_norms = tf.reduce_min(sq_norms, axis=-1)
 
-        g_coords_expanded = tf.cast(g_coords_expanded, tf.float32)
-        s_coords_expanded = tf.cast(s_coords_expanded, tf.float32)
+        return min_sq_norms
 
-        g_coords_expanded_swapped = tf.expand_dims(g_coords, axis=0)
-        s_coords_expanded_swapped = tf.expand_dims(s_coords, axis=1)
+    g_coords = tf.where(tf.greater(y_true, 0.5), dtype=tf.float32)
+    s_coords = tf.where(tf.greater(y_pred, 0.5), dtype=tf.float32)
 
-        g_coords_expanded_swapped = tf.cast(g_coords_expanded_swapped,
-                                            tf.float32)
-        s_coords_expanded_swapped = tf.cast(s_coords_expanded_swapped,
-                                            tf.float32)
+    size_of_g = tf.constant(tf.shape(g_coords)[0], dtype=tf.float32)
 
-        # Calculate pairwise distances
-        distances_y_true = tf.norm(g_coords_expanded - s_coords_expanded,
-                                   axis=2)
-        distances_y_pred = tf.norm(g_coords_expanded_swapped -
-                                   s_coords_expanded_swapped, axis=2)
+    min_distances_g_to_s = _min_distances(g_coords, s_coords)
+    min_distances_s_to_g = _min_distances(s_coords, g_coords)
 
-        # Find minimum distances (optional)
-        min_distances_y_true = tf.reduce_min(distances_y_true, axis=1)
-        min_distances_y_pred = tf.reduce_min(distances_y_pred, axis=1)
+    sum_min_distances_g_to_s = tf.reduce_sum(min_distances_g_to_s)
+    sum_min_distances_s_to_g = tf.reduce_sum(min_distances_s_to_g)
 
-        size_of_g = tf.cast(size_of_g, tf.float32)
+    bahd_left = (sum_min_distances_g_to_s + smooth) / (size_of_g + smooth)
+    bahd_right = (sum_min_distances_s_to_g + smooth) / (size_of_g + smooth)
 
-        bahd_value = (tf.reduce_sum(min_distances_y_true) /
-                      (size_of_g + 1e-7) +
-                      tf.reduce_sum(min_distances_y_pred) /
-                      (size_of_g + 1e-7)) / 2.0
-
-    return bahd_value
+    return bahd_left + bahd_right
 
 
 def surface_distance_metric(y_true, y_pred, voxel_spacing=(1.0, 1.0, 1.0)):
