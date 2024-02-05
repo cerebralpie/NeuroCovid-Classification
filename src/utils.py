@@ -141,7 +141,7 @@ def read_image(image_path: Path,
 
     Returns:
         A NumPy array representing the preprocessed image. The array is of
-        shape (height, width, 3) for RGB images and (height, width) for
+        shape (height, width, 3) for RGB images and (height, width, 1) for
         grayscale images. Pixel values are normalized to [0, 1].
 
     Raises:
@@ -176,6 +176,10 @@ def read_image(image_path: Path,
         # Normalize the pixel values to the range [0, 1]
         normalized_image_array = resized_image_array / np.linalg.norm(
             resized_image_array)
+
+        if grayscale:
+            normalized_image_array = np.expand_dims(normalized_image_array,
+                                                    axis=-1)
 
         return normalized_image_array
 
