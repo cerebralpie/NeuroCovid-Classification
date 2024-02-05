@@ -1,6 +1,7 @@
 """
 File's docstring - To be done
 """
+import numpy as np
 import tensorflow as tf
 import tensorflow_io as tfio
 import pydicom
@@ -120,20 +121,26 @@ def load_data(root_dir: Path, split=0.1):
         return None
 
 
-def read_image(image_path: Path, image_shape: tuple[int, int]):
+def read_image(image_path: Path,
+               image_shape: tuple[int, int],
+               grayscale: bool = False) -> np.ndarray:
     """
     Read, resize, and preprocess an image from a given path.
 
-    This function read an image from the specified 'path', resizes it to the
-    desired 'image_shape', and normalizes pixel values to the range [0, 1].
+    This function handles both standard image formats (e.g., PNG, JPEG) and
+    DICOM files. it resizes the image to the specified shape and normalizes
+    pixel values to the range [0, 1]
 
     Args:
-        image_path: pathlib.Path object to the image file.
+        image_path: Path to the image file.
         image_shape: Desired shape (width and height) of the resized image.
+        grayscale: Whether to convert the image to grayscale instead of RGB.
+                   Defaults to False.
 
     Returns:
-        A NumPy array representing the preprocessed RBG image, or None if an
-        error occurs during reading or processing.
+        A NumPy array representing the preprocessed image. The array is of
+        shape (height, width, 3) for RGB images and (height, width) for
+        grayscale images. Pixel values are normalized to [0, 1].
 
     Raises:
         FileNotFoundError: If the image file cannot be found at the given path.
@@ -141,27 +148,34 @@ def read_image(image_path: Path, image_shape: tuple[int, int]):
                    OpenCV.
     """
     try:
+        # Check if the image is a DICOM file
         if image_path.suffix.lower() in [".dcm", ".dicom"]:
             image_bytes = tf.io.read_file(image_path)
             image_tensor = tfio.image.decode_dicom_image(image_bytes,
                                                          dtype=tf.uint8,
                                                          color_dim=True,
                                                          on_error='lossy')
-            image_array = image_tensor.numpy()
+            raw_image_array = image_tensor.numpy()
         else:
             path = str(image_path)
-            image_array = cv2.imread(path, cv2.IMREAD_COLOR)
+            color_mode = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
+            raw_image_array = cv2.imread(path, color_mode)
 
-            if image_array is None:
+            if raw_image_array is None:
                 raise FileNotFoundError(f"Image not found at path: {path}")
 
-            image_array = cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB)
+            if not grayscale:
+                raw_image_array = cv2.cvtColor(raw_image_array,
+                                               cv2.COLOR_BGR2RGB)
+
+        # Resize the image
+        resized_image_array = cv2.resize(raw_image_array, image_shape)
+
+        # Normalize the pixel values to the range [0, 1]
+        normalized_image_array = resized_image_array / np.linalg.norm(
+            resized_image_array)
+
+        return normalized_image_array
 
     except (FileNotFoundError, cv2.error) as e:
-        print(f"Error reading image: {e}")
-        return None
-
-    image_array = cv2.resize(image_array, image_shape)
-    image_array = image_array / 255.0
-
-    return image_array
+        raise
