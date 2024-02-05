@@ -57,29 +57,26 @@ def dicom_to_tensor(dicom_file_path: Path) -> tf.Tensor:
     return tensor
 
 
-def load_data(root_dir: Path, split=0.1):
+def load_data(data_root_directory: Path, split: float = 0.1):
     """
     Load and split image and mask paths from a given directory for machine
     learning tasks.
 
     This function searches for image and mask data within the specified
-    'root_dir'. It loads their paths, ensuring consistency and raising errors
-    for potential issues. The data is then split into training, validation, and
-    test sets using the provided 'split' ratio.
+    'data_root_directory' and loads their paths. The data is then split into
+    training, validation, and test sets using the provided 'split' ratio.
 
     Args:
-        root_dir: pathlib.Path object to the root directory containing
-                  "images" and "masks" subdirectories.
-        split: Fraction of data to allocate for validation and test sets
-               (default 0.1 each)
+        data_root_directory: pathlib.Path object to the root directory
+                             containing "images" and "masks" subdirectories.
+        split: Fraction of data to allocate for validation and test sets.
+               Defaults to 0.1.
 
     Returns:
-        Returns None if an error occurs during data loading, validation,
-        or splitting. Otherwise, returns a tuple containing three sub-tuples of
-        image and mask paths:
-            - (training_images, training_masks)
-            - (validation_images, validation_masks)
-            - (test_images, test_masks)
+        Returns a tuple containing three sub-tuples of image and mask paths:
+            - (training_image_paths, training_mask_paths)
+            - (validation_image_paths, validation_mask_paths)
+            - (test_image_paths, test_mask_paths)
 
     Raises:
         FileNotFoundError:
@@ -90,35 +87,41 @@ def load_data(root_dir: Path, split=0.1):
         ValueError: If the number of images and masks does not match.
     """
     try:
-        images = sorted(root_dir.glob("images/*"))
-        masks = sorted(root_dir.glob("masks/*"))
+        image_paths = sorted(data_root_directory.glob("images/*"))
+        mask_paths = sorted(data_root_directory.glob("masks/*"))
 
-        if not images or not masks:
+        if not image_paths or not mask_paths:
             raise FileNotFoundError("Images or masks not found in the "
                                     "specified directories.")
 
-        if len(images) != len(masks):
+        if len(image_paths) != len(mask_paths):
             raise ValueError("Number of images and masks does not match.")
 
-        total_size = len(images)
-        valid_size = int(total_size * split)
-        test_size = int(total_size * split)
+        total_image_mask_pairs = len(image_paths)
+        split_sizes = int(total_image_mask_pairs * split)
 
-        x_train, x_valid = train_test_split(images, test_size=valid_size,
+        x_train, x_valid = train_test_split(image_paths,
+                                            test_size=split_sizes,
                                             random_state=SEED)
-        y_train, y_valid = train_test_split(masks, test_size=valid_size,
+        y_train, y_valid = train_test_split(mask_paths,
+                                            test_size=split_sizes,
                                             random_state=SEED)
 
-        x_train, x_test = train_test_split(x_train, test_size=test_size,
+        x_train, x_test = train_test_split(x_train,
+                                           test_size=split_sizes,
                                            random_state=SEED)
-        y_train, y_test = train_test_split(y_train, test_size=test_size,
+        y_train, y_test = train_test_split(y_train,
+                                           test_size=split_sizes,
                                            random_state=SEED)
 
-        return (x_train, y_train), (x_valid, y_valid), (x_test, y_test)
+        training_paths = (x_train, y_train)
+        validation_paths = (x_valid, y_valid)
+        test_paths = (x_test, y_test)
 
-    except (FileNotFoundError, ValueError) as e:
-        print(f"Error loading data: {e}")
-        return None
+        return training_paths, validation_paths, test_paths
+
+    except (FileNotFoundError, ValueError):
+        raise
 
 
 def read_image(image_path: Path,
@@ -177,5 +180,5 @@ def read_image(image_path: Path,
 
         return normalized_image_array
 
-    except (FileNotFoundError, cv2.error) as e:
+    except (FileNotFoundError, cv2.error):
         raise
