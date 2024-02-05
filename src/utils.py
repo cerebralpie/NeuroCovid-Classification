@@ -56,7 +56,10 @@ def dicom_to_tensor(dicom_file_path: Path) -> tf.Tensor:
     return tensor
 
 
-def load_data(data_root_directory: Path, split: float = 0.1):
+def load_data(data_root_directory: Path,
+              split: float = 0.1) -> tuple[tuple[Path, Path],
+                                           tuple[Path, Path],
+                                           tuple[Path, Path]]:
     """
     Load and split image and mask paths from a given directory for machine
     learning tasks.
@@ -185,3 +188,32 @@ def read_image(image_path: Path,
 
     except (FileNotFoundError, cv2.error):
         raise
+
+
+def get_tensorflow_dataset(image_mask_paths: tuple[Path, Path],
+                           image_size: int,
+                           batch_size: int = 32):
+    def _parse(image_path: Path, mask_path: Path):
+        def _subparse(sub_image_path: Path, sub_mask_path: Path):
+            image_array = read_image(image_path=sub_image_path,
+                                     grayscale=False)
+            mask_array = read_image(image_path=sub_mask_path,
+                                    grayscale=True)
+
+            return image_array, mask_array
+
+        image_tensor, mask_tensor = tf.numpy_function(_subparse,
+                                                      [image_path, mask_path],
+                                                      [tf.float32, tf.float32])
+        image_tensor.set_shape([image_size, image_size, 3])
+        mask_tensor.set_shape([image_size, image_size, 1])
+
+        return image_tensor, mask_tensor
+
+    dataset = tf.data.Dataset.from_tensor_slices((image_mask_paths[0],
+                                                 image_mask_paths[1]))
+    dataset = dataset.map(_parse)
+    dataset = dataset.batch(batch_size=batch_size)
+    dataset = dataset.repeat()
+
+    return dataset
