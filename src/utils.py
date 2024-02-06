@@ -40,7 +40,6 @@ def start_session() -> tf.distribute.Strategy:
                 tf.config.set_memory_growth(gpu, True)
             tf.config.set_visible_devices(gpus[0], 'GPU')
             strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
-            print("\nGPU Found! Using GPU...")
         except RuntimeError:
             raise
     else:
