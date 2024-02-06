@@ -13,9 +13,9 @@ from sklearn.model_selection import train_test_split
 SEED = 42
 
 
-def configure_gpu() -> tf.distribute.Strategy:
+def start_session() -> tf.distribute.Strategy:
     """
-    Configures the GPU settings for TensorFlow if a GPU is available.
+    Configure the GPU settings for TensorFlow if a GPU is available.
 
     This function lists all the physical GPU devices available and sets the
     memory growth of each GPU. It also sets the first GPU device as the visible
@@ -30,7 +30,9 @@ def configure_gpu() -> tf.distribute.Strategy:
     Raises:
         RuntimeError: If there is an error while setting the GPU settings.
     """
-    gpus = tf.config.experimental.list_physical_devices('GPU')
+    tf.keras.backend.clear_session()
+
+    gpus = tf.config.list_physical_devices('GPU')
 
     if gpus:
         try:
