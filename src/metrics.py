@@ -128,8 +128,11 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
 
         return min_sq_norms
 
-    g_coords = tf.where(tf.greater(y_true, 0.5), dtype=tf.float32)
-    s_coords = tf.where(tf.greater(y_pred, 0.5), dtype=tf.float32)
+    g_coords = tf.where(tf.greater(y_true, 0.5))
+    s_coords = tf.where(tf.greater(y_pred, 0.5))
+
+    g_coords = tf.cast(g_coords, tf.float32)
+    s_coords = tf.cast(s_coords, tf.float32)
 
     size_of_g = tf.constant(tf.shape(g_coords)[0], dtype=tf.float32)
 
