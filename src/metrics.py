@@ -5,10 +5,12 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 
+# Continuous Dice Coefficient (CDC)
 def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
     """
     For a binary segmentation task, calculate the Continuous Dice Coefficient
-    given a ground truth G (y_true) and a predicted segmentation S (y_pred).
+    (CDC) between a ground truth G (y_true) and a predicted segmentation S
+    (y_pred).
 
     This function first flattens the input tensors, and then calculates the
     CDC based on the formula:
@@ -17,14 +19,16 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
     correction factor that depends on the size of the intersection of G and S.
 
     Args:
-        y_true (tf.Tensor): The ground truth values
-        y_pred (tf.Tensor): The predicted values
+        y_true: A tensor containing the ground truth values.
+        y_pred: A tensor containing the predicted values.
+        smooth: A smoothing factor to prevent divisions by zero. Defaults to 1.
 
     Returns:
-        The Continuous Dice Coefficient (CDC) with a value ranging from 0 to 1.
-        A CDC value of 1 indicates a perfect overlap, meaning the segmentation
-        is identical to the ground truth. Conversely, a cDC value of 0 signifies
-        no overlap between the segmented image and the ground truth.
+        A tensor containing the Continuous Dice Coefficient (CDC) with a value
+        ranging from 0 to 1. A CDC value of 1 indicates a perfect overlap,
+        meaning the segmentation is identical to the ground truth. Conversely,
+        a CDC value of 0 signifies no overlap between the segmented image and
+        the ground truth.
     """
     y_true = layers.Flatten()(y_true)
     y_pred = layers.Flatten()(y_pred)
@@ -54,49 +58,72 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
     return cdc_value
 
 
+# Continuous Dice Coefficient Loss (CDC loss)
 def cdc_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
-    """Calculates the loss based on the Continuous Dice Coefficient (CDC).
+    """Calculate the loss based on the Continuous Dice Coefficient (CDC).
 
-    This function computes the loss as 1 - CDC, where CDC is a measure of overlap
-    between a predicted segmentation and its ground truth. A lower loss indicates
-    better segmentation performance.
+    This function computes the loss as 1 - CDC, where CDC is a measure of the
+    overlap between a predicted segmentation and its ground truth. A lower loss
+    indicates better segmentation performance.
 
     Args:
-        y_true (tf.Tensor): The ground truth values
-        y_pred (tf.Tensor): The predicted values
+        y_true: A tensor containing the ground truth values.
+        y_pred: A tensor containing the predicted values.
 
     Returns:
-        The CDC loss, with a value ranging from 0 to 1.
-        A loss of 0 indicates perfect segmentation (complete overlap), while a loss
-        of 1 signifies no overlap between the predicted segmentation and ground truth.
+        A tensor containing the CDC loss, with a value ranging from 0 to 1. A
+        loss of 0 indicates perfect segmentation (complete overlap), while a
+        loss of 1 means that there's no overlap between the predicted
+        segmentation and the ground truth.
     """
     return 1.0 - cdc(y_true=y_true, y_pred=y_pred)
 
 
+# Balanced Average Hausdorff Distance (BAHD)
 def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
-    def _min_distances(set1: tf.Tensor, set2: tf.Tensor) -> tf.Tensor:
-        # set1 and set2 are tensors of shape (n, d) and (m, d) respectively,
-        # where n and m are the number of points in each set, and d is the
-        # dimensionality of the points
+    """
+    For a binary segmentation task, calculate the Balanced Average Hausdorff
+    Distance (BAHD) between a ground truth G (y_true) and a predicted
+    segmentation S (y_pred).
 
-        # Expand dimensions of the tensors for broadcasting. After expansion,
-        # set1_exp has shape (n, 1, d) and set2_exp has shape (1, m, d), which
-        # means they'll always be broadcast-compatible
+    This function first identifies the coordinates of points in the input
+    tensors that belong to a region of interest (ROI), and then calculates the
+    BAHD based on the formula:
+        BAHD = (sum_min_distances_G_to_S / size_of_G ) +
+               (sum_min_distances_S_to_G / size_of_G),
+    where G is the ground truth, S is the segmented image,
+    and sum_min_distances* represent the sum of the minimum distances from each
+    point in one set to the other set.
+
+    Args:
+        y_true: A tensor containing the ground truth values.
+        y_pred: A tensor containing the predicted values.
+        smooth: A smoothing factor to prevent divisions by zero. Defaults to 1.
+
+    Returns:
+        A tensor containing the Balanced Average Hausdorff Distance (BAHD). The
+        lower the BAHD value, the smaller is the distance between the ground
+        truth and the segmented image, and the more similar their sizes are.
+    """
+    def _min_distances(set1: tf.Tensor, set2: tf.Tensor) -> tf.Tensor:
+        """
+        Calculate the minimum distances between two sets of points.
+
+        Args:
+            set1: A tensor of shape (n, d) representing n points in d
+                  dimensions.
+            set2: A tensor of shape (m, d) representing m points in d
+                  dimensions.
+
+        Returns:
+            A tensor of shape (n,) containing the minimum squared Euclidean
+            distance from each point in set1 to any point in set2.
+        """
         set1_exp = tf.expand_dims(set1, 1)
         set2_exp = tf.expand_dims(set2, 0)
 
-        # Compute the squared differences
-        # Broadcasting allows us to subtract the two tensors as if they had the
-        # same shape
-        # sq_diff has shape (n, m, d)
         sq_diff = tf.square(set1_exp - set2_exp)
-
-        # Sum over the last dimension to get the squared norms
-        # sq_norms has shape (n, m)
         sq_norms = tf.reduce_sum(sq_diff, axis=-1)
-
-        # Find the minimum squared norm along the second dimension
-        # min_sq_norms has shape (n,)
         min_sq_norms = tf.reduce_min(sq_norms, axis=-1)
 
         return min_sq_norms
