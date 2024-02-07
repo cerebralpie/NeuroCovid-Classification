@@ -134,7 +134,7 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
     g_coords = tf.cast(g_coords, tf.float32)
     s_coords = tf.cast(s_coords, tf.float32)
 
-    size_of_g = tf.constant(tf.shape(g_coords)[0], dtype=tf.float32)
+    size_of_g = tf.cast(tf.reduce_sum(y_true), tf.float32)
 
     min_distances_g_to_s = _min_distances(g_coords, s_coords)
     min_distances_s_to_g = _min_distances(s_coords, g_coords)
