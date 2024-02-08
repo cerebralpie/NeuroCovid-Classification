@@ -145,8 +145,8 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
         minimum_square_distance_a_to_b = tf.reduce_min(
             input_tensor=square_distances, axis=-1)
 
-        return tf.sqrt(
-            tf.reduce_sum(input_tensor=minimum_square_distance_a_to_b, axis=-1))
+        return tf.reduce_sum(
+            input_tensor=tf.sqrt(minimum_square_distance_a_to_b), axis=-1)
 
     g_coords = tf.where(y_true > 0.5)
     s_coords = tf.where(y_pred > 0.5)
