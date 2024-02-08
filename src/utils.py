@@ -7,13 +7,15 @@ import tensorflow_io as tfio
 import pydicom
 import cv2
 from pathlib import Path
+from PIL import Image
+from PIL import UnidentifiedImageError
 from sklearn.model_selection import train_test_split
 
 
 SEED = 42
 
 
-def start_session() -> tf.distribute.Strategy:
+def start_session() -> tf.distribute.OneDeviceStrategy:
     """
     Configure the GPU settings for TensorFlow if a GPU is available.
 
@@ -32,13 +34,13 @@ def start_session() -> tf.distribute.Strategy:
     """
     tf.keras.backend.clear_session()
 
-    gpus = tf.config.list_physical_devices('GPU')
+    gpus = tf.config.experimental.list_physical_devices('GPU')
 
     if gpus:
         try:
             for gpu in gpus:
-                tf.config.set_memory_growth(gpu, True)
-            tf.config.set_visible_devices(gpus[0], 'GPU')
+                tf.config.experimental.set_memory_growth(gpu, True)
+            tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
             strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
         except RuntimeError:
             raise
@@ -272,3 +274,37 @@ def get_tensorflow_dataset(image_mask_paths: tuple[Path, Path],
     dataset = dataset.repeat()
 
     return dataset
+
+
+def get_unique_dimensions(image_path: Path) -> set[tuple[int, int]]:
+    """
+    Get the unique dimensions of all images in a specified directory
+
+    This function iterates over all files in the specified directory, opens each
+    file as an image using the PIL library, and appends the size of the image
+    (width, height) to a set. The set of unique dimensions is then returned.
+
+    Args:
+        image_path: The path to the directory containing the images.
+
+    Returns:
+        A set of tuples, where each tuple represents the unique (width, height)
+        dimensions of the images in the directory.
+
+    Raises:
+        UnidentifiedImageException: An error occurred when the image file
+                                    cannot be identified.
+        IOError: An error occurred when an input/output operation fails,
+                 such as the file not being readable.
+    """
+    unique_dimensions = set()
+
+    for file in image_path.iterdir():
+        if file.is_file():
+            try:
+                with Image.open(file) as img:
+                    unique_dimensions.add(img.size)
+            except (UnidentifiedImageError, IOError):
+                raise
+
+    return unique_dimensions
