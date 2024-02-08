@@ -3,6 +3,7 @@
 """
 import tensorflow as tf
 from tensorflow.keras import layers
+from tensorflow_graphics.util import shape
 
 
 # Continuous Dice Coefficient (CDC)
@@ -105,42 +106,58 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
         lower the BAHD value, the smaller is the distance between the ground
         truth and the segmented image, and the more similar their sizes are.
     """
-    def _min_distances(set1: tf.Tensor, set2: tf.Tensor) -> tf.Tensor:
+    def _sum_min_distances(set_a: tf.Tensor, set_b: tf.Tensor) -> tf.Tensor:
         """
         Calculate the minimum distances between two sets of points.
 
         Args:
-            set1: A tensor of shape (n, d) representing n points in d
+            set_a: A tensor of shape (n, d) representing n points in d
                   dimensions.
-            set2: A tensor of shape (m, d) representing m points in d
+            set_b: A tensor of shape (m, d) representing m points in d
                   dimensions.
 
         Returns:
             A tensor of shape (n,) containing the minimum squared Euclidean
             distance from each point in set1 to any point in set2.
         """
-        set1_exp = tf.expand_dims(set1, 1)
-        set2_exp = tf.expand_dims(set2, 0)
+        shape.compare_batch_dimensions(
+            tensors=(set_a, set_b),
+            tensor_names=("set1", "set2"),
+            last_axes=-3,
+            broadcast_compatible=True)
 
-        sq_diff = tf.square(set1_exp - set2_exp)
-        sq_norms = tf.reduce_sum(sq_diff, axis=-1)
-        min_sq_norms = tf.reduce_min(sq_norms, axis=-1)
+        # Verify that the last axis of the tensors have the same dimension
+        dimension = set_a.shape.as_list()[-1]
+        shape.check_static(
+            tensor=set_b,
+            tensor_name="set2",
+            has_dim_equals=(-1, dimension))
 
-        return min_sq_norms
+        # Create N x M matrix where the entry i,j corresponds to ai - bj
+        # (vector of dimension D)
+        difference = (
+                tf.expand_dims(set_a, axis=-2) -
+                tf.expand_dims(set_b, axis=-3))
 
-    g_coords = tf.where(tf.greater(y_true, 0.5))
-    s_coords = tf.where(tf.greater(y_pred, 0.5))
+        # Calculate the square distances between each two points: |ai - bj|^2.
+        square_distances = tf.einsum("...i,...i->...", difference, difference)
 
-    g_coords = tf.cast(g_coords, tf.float32)
-    s_coords = tf.cast(s_coords, tf.float32)
+        minimum_square_distance_a_to_b = tf.reduce_min(
+            input_tensor=square_distances, axis=-1)
 
-    size_of_g = tf.cast(tf.reduce_sum(y_true), tf.float32)
+        return tf.sqrt(
+            tf.reduce_sum(input_tensor=minimum_square_distance_a_to_b, axis=-1))
 
-    min_distances_g_to_s = _min_distances(g_coords, s_coords)
-    min_distances_s_to_g = _min_distances(s_coords, g_coords)
+    g_coords = tf.where(y_true > 0.5)
+    s_coords = tf.where(y_pred > 0.5)
 
-    sum_min_distances_g_to_s = tf.reduce_sum(min_distances_g_to_s)
-    sum_min_distances_s_to_g = tf.reduce_sum(min_distances_s_to_g)
+    size_of_g = tf.constant(g_coords.shape.as_list()[0], dtype=tf.float32)
+
+    sum_min_distances_g_to_s = _sum_min_distances(g_coords, s_coords)
+    sum_min_distances_s_to_g = _sum_min_distances(s_coords, g_coords)
+
+    sum_min_distances_g_to_s = tf.reduce_sum(sum_min_distances_g_to_s)
+    sum_min_distances_s_to_g = tf.reduce_sum(sum_min_distances_s_to_g)
 
     bahd_left = (sum_min_distances_g_to_s + smooth) / (size_of_g + smooth)
     bahd_right = (sum_min_distances_s_to_g + smooth) / (size_of_g + smooth)
