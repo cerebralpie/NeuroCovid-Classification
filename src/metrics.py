@@ -148,16 +148,43 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
         return tf.reduce_sum(
             input_tensor=tf.sqrt(minimum_square_distance_a_to_b), axis=-1)
 
-    g_coords = tf.where(y_true > 0.5)
-    s_coords = tf.where(y_pred > 0.5)
+    # g_non_zero = tf.math.count_nonzero(y_true, dtype=tf.int32)
+    # s_non_zero = tf.math.count_nonzero(y_pred, dtype=tf.int32)
 
-    size_of_g = tf.constant(g_coords.shape.as_list()[0], dtype=tf.float32)
+    g_coords = tf.cast(tf.where(y_true > 0.5), dtype=tf.float32)
+    s_coords = tf.cast(tf.where(y_pred > 0.5), dtype=tf.float32)
+
+    # sum_min_distances_g_to_s = tf.cond(
+    #     pred=tf.equal(g_non_zero, tf.constant(0)),
+    #     true_fn=lambda: tf.cond(
+    #         pred=tf.equal(s_non_zero, tf.constant(0)),
+    #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
+    #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
+    #     false_fn=lambda: tf.cond(
+    #         pred=tf.equal(s_non_zero, tf.constant(0)),
+    #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
+    #         false_fn=_sum_min_distances(g_coords, s_coords))
+    # )
+    #
+    # sum_min_distances_s_to_g = tf.cond(
+    #     pred=tf.equal(g_non_zero, tf.constant(0)),
+    #     true_fn=lambda: tf.cond(
+    #         pred=tf.equal(s_non_zero, tf.constant(0)),
+    #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
+    #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
+    #     false_fn=lambda: tf.cond(
+    #         pred=tf.equal(s_non_zero, tf.constant(0)),
+    #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
+    #         false_fn=_sum_min_distances(s_coords, g_coords))
+    # )
+
+    size_of_g = tf.cast(tf.reduce_sum(y_true), dtype=tf.float32)
 
     sum_min_distances_g_to_s = _sum_min_distances(g_coords, s_coords)
     sum_min_distances_s_to_g = _sum_min_distances(s_coords, g_coords)
 
-    sum_min_distances_g_to_s = tf.reduce_sum(sum_min_distances_g_to_s)
-    sum_min_distances_s_to_g = tf.reduce_sum(sum_min_distances_s_to_g)
+    # sum_min_distances_g_to_s = tf.reduce_sum(sum_min_distances_g_to_s)
+    # sum_min_distances_s_to_g = tf.reduce_sum(sum_min_distances_s_to_g)
 
     bahd_left = (sum_min_distances_g_to_s + smooth) / (size_of_g + smooth)
     bahd_right = (sum_min_distances_s_to_g + smooth) / (size_of_g + smooth)
