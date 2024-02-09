@@ -3,11 +3,48 @@
 """
 import tensorflow as tf
 from tensorflow.keras import layers
-from tensorflow_graphics.util import shape
+# from tensorflow_graphics.util import shape
+
+
+# Sørensen–Dice coefficient
+def dice_coef(y_true, y_pred, smooth=1e-4):
+    """
+        For a binary segmentation task, calculate the Dice Coefficient between
+        a ground truth G (y_true) and a predicted segmentation S (y_pred).
+
+        This function first flattens the input tensors, and then calculates the
+        Dice Coefficient based on the formula:
+            Dice = (2 * |G ∩ S|) / (|G| + |S|),
+        where G is the ground truth, and S is the segmented image.
+
+        Args:
+            y_true: A tensor containing the ground truth values.
+            y_pred: A tensor containing the predicted values.
+            smooth: A smoothing factor to prevent divisions by zero. Defaults
+                    to 1e-4.
+
+        Returns:
+            A tensor containing the Dice Coefficient with a value ranging from
+            0 to 1. A Dice value of 1 indicates a perfect overlap, meaning the
+            segmentation is identical to the ground truth. Conversely, a Dice
+            value of 0 signifies no overlap between the segmented image and the
+            ground truth.
+        """
+    y_true = layers.Flatten()(y_true)
+    y_pred = layers.Flatten()(y_pred)
+
+    intersection = tf.reduce_sum(y_true * y_pred)
+
+    dice_numerator = 2. * intersection + smooth
+    dice_denominator = tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + smooth
+
+    dice_value = dice_numerator / dice_denominator
+
+    return dice_value
 
 
 # Continuous Dice Coefficient (CDC)
-def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
+def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1e-4) -> tf.Tensor:
     """
     For a binary segmentation task, calculate the Continuous Dice Coefficient
     (CDC) between a ground truth G (y_true) and a predicted segmentation S
@@ -80,116 +117,116 @@ def cdc_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     return 1.0 - cdc(y_true=y_true, y_pred=y_pred)
 
 
-# Balanced Average Hausdorff Distance (BAHD)
-def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
-    """
-    For a binary segmentation task, calculate the Balanced Average Hausdorff
-    Distance (BAHD) between a ground truth G (y_true) and a predicted
-    segmentation S (y_pred).
-
-    This function first identifies the coordinates of points in the input
-    tensors that belong to a region of interest (ROI), and then calculates the
-    BAHD based on the formula:
-        BAHD = (sum_min_distances_G_to_S / size_of_G ) +
-               (sum_min_distances_S_to_G / size_of_G),
-    where G is the ground truth, S is the segmented image,
-    and sum_min_distances* represent the sum of the minimum distances from each
-    point in one set to the other set.
-
-    Args:
-        y_true: A tensor containing the ground truth values.
-        y_pred: A tensor containing the predicted values.
-        smooth: A smoothing factor to prevent divisions by zero. Defaults to 1.
-
-    Returns:
-        A tensor containing the Balanced Average Hausdorff Distance (BAHD). The
-        lower the BAHD value, the smaller is the distance between the ground
-        truth and the segmented image, and the more similar their sizes are.
-    """
-    def _sum_min_distances(set_a: tf.Tensor, set_b: tf.Tensor) -> tf.Tensor:
-        """
-        Calculate the minimum distances between two sets of points.
-
-        Args:
-            set_a: A tensor of shape (n, d) representing n points in d
-                  dimensions.
-            set_b: A tensor of shape (m, d) representing m points in d
-                  dimensions.
-
-        Returns:
-            A tensor of shape (n,) containing the minimum squared Euclidean
-            distance from each point in set1 to any point in set2.
-        """
-        shape.compare_batch_dimensions(
-            tensors=(set_a, set_b),
-            tensor_names=("set1", "set2"),
-            last_axes=-3,
-            broadcast_compatible=True)
-
-        # Verify that the last axis of the tensors have the same dimension
-        dimension = set_a.shape.as_list()[-1]
-        shape.check_static(
-            tensor=set_b,
-            tensor_name="set2",
-            has_dim_equals=(-1, dimension))
-
-        # Create N x M matrix where the entry i,j corresponds to ai - bj
-        # (vector of dimension D)
-        difference = (
-                tf.expand_dims(set_a, axis=-2) -
-                tf.expand_dims(set_b, axis=-3))
-
-        # Calculate the square distances between each two points: |ai - bj|^2.
-        square_distances = tf.einsum("...i,...i->...", difference, difference)
-
-        minimum_square_distance_a_to_b = tf.reduce_min(
-            input_tensor=square_distances, axis=-1)
-
-        return tf.reduce_sum(
-            input_tensor=tf.sqrt(minimum_square_distance_a_to_b), axis=-1)
-
-    # g_non_zero = tf.math.count_nonzero(y_true, dtype=tf.int32)
-    # s_non_zero = tf.math.count_nonzero(y_pred, dtype=tf.int32)
-
-    g_coords = tf.cast(tf.where(y_true > 0.5), dtype=tf.float32)
-    s_coords = tf.cast(tf.where(y_pred > 0.5), dtype=tf.float32)
-
-    # sum_min_distances_g_to_s = tf.cond(
-    #     pred=tf.equal(g_non_zero, tf.constant(0)),
-    #     true_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
-    #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
-    #     false_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
-    #         false_fn=_sum_min_distances(g_coords, s_coords))
-    # )
-    #
-    # sum_min_distances_s_to_g = tf.cond(
-    #     pred=tf.equal(g_non_zero, tf.constant(0)),
-    #     true_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
-    #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
-    #     false_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
-    #         false_fn=_sum_min_distances(s_coords, g_coords))
-    # )
-
-    size_of_g = tf.cast(tf.reduce_sum(y_true), dtype=tf.float32)
-
-    sum_min_distances_g_to_s = _sum_min_distances(g_coords, s_coords)
-    sum_min_distances_s_to_g = _sum_min_distances(s_coords, g_coords)
-
-    # sum_min_distances_g_to_s = tf.reduce_sum(sum_min_distances_g_to_s)
-    # sum_min_distances_s_to_g = tf.reduce_sum(sum_min_distances_s_to_g)
-
-    bahd_left = (sum_min_distances_g_to_s + smooth) / (size_of_g + smooth)
-    bahd_right = (sum_min_distances_s_to_g + smooth) / (size_of_g + smooth)
-
-    return bahd_left + bahd_right
+# # Balanced Average Hausdorff Distance (BAHD)
+# def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
+#     """
+#     For a binary segmentation task, calculate the Balanced Average Hausdorff
+#     Distance (BAHD) between a ground truth G (y_true) and a predicted
+#     segmentation S (y_pred).
+#
+#     This function first identifies the coordinates of points in the input
+#     tensors that belong to a region of interest (ROI), and then calculates the
+#     BAHD based on the formula:
+#         BAHD = (sum_min_distances_G_to_S / size_of_G ) +
+#                (sum_min_distances_S_to_G / size_of_G),
+#     where G is the ground truth, S is the segmented image,
+#     and sum_min_distances* represent the sum of the minimum distances from each
+#     point in one set to the other set.
+#
+#     Args:
+#         y_true: A tensor containing the ground truth values.
+#         y_pred: A tensor containing the predicted values.
+#         smooth: A smoothing factor to prevent divisions by zero. Defaults to 1.
+#
+#     Returns:
+#         A tensor containing the Balanced Average Hausdorff Distance (BAHD). The
+#         lower the BAHD value, the smaller is the distance between the ground
+#         truth and the segmented image, and the more similar their sizes are.
+#     """
+#     def _sum_min_distances(set_a: tf.Tensor, set_b: tf.Tensor) -> tf.Tensor:
+#         """
+#         Calculate the minimum distances between two sets of points.
+#
+#         Args:
+#             set_a: A tensor of shape (n, d) representing n points in d
+#                   dimensions.
+#             set_b: A tensor of shape (m, d) representing m points in d
+#                   dimensions.
+#
+#         Returns:
+#             A tensor of shape (n,) containing the minimum squared Euclidean
+#             distance from each point in set1 to any point in set2.
+#         """
+#         shape.compare_batch_dimensions(
+#             tensors=(set_a, set_b),
+#             tensor_names=("set1", "set2"),
+#             last_axes=-3,
+#             broadcast_compatible=True)
+#
+#         # Verify that the last axis of the tensors have the same dimension
+#         dimension = set_a.shape.as_list()[-1]
+#         shape.check_static(
+#             tensor=set_b,
+#             tensor_name="set2",
+#             has_dim_equals=(-1, dimension))
+#
+#         # Create N x M matrix where the entry i,j corresponds to ai - bj
+#         # (vector of dimension D)
+#         difference = (
+#                 tf.expand_dims(set_a, axis=-2) -
+#                 tf.expand_dims(set_b, axis=-3))
+#
+#         # Calculate the square distances between each two points: |ai - bj|^2.
+#         square_distances = tf.einsum("...i,...i->...", difference, difference)
+#
+#         minimum_square_distance_a_to_b = tf.reduce_min(
+#             input_tensor=square_distances, axis=-1)
+#
+#         return tf.reduce_sum(
+#             input_tensor=tf.sqrt(minimum_square_distance_a_to_b), axis=-1)
+#
+#     # g_non_zero = tf.math.count_nonzero(y_true, dtype=tf.int32)
+#     # s_non_zero = tf.math.count_nonzero(y_pred, dtype=tf.int32)
+#
+#     g_coords = tf.cast(tf.where(y_true > 0.5), dtype=tf.float32)
+#     s_coords = tf.cast(tf.where(y_pred > 0.5), dtype=tf.float32)
+#
+#     # sum_min_distances_g_to_s = tf.cond(
+#     #     pred=tf.equal(g_non_zero, tf.constant(0)),
+#     #     true_fn=lambda: tf.cond(
+#     #         pred=tf.equal(s_non_zero, tf.constant(0)),
+#     #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
+#     #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
+#     #     false_fn=lambda: tf.cond(
+#     #         pred=tf.equal(s_non_zero, tf.constant(0)),
+#     #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
+#     #         false_fn=_sum_min_distances(g_coords, s_coords))
+#     # )
+#     #
+#     # sum_min_distances_s_to_g = tf.cond(
+#     #     pred=tf.equal(g_non_zero, tf.constant(0)),
+#     #     true_fn=lambda: tf.cond(
+#     #         pred=tf.equal(s_non_zero, tf.constant(0)),
+#     #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
+#     #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
+#     #     false_fn=lambda: tf.cond(
+#     #         pred=tf.equal(s_non_zero, tf.constant(0)),
+#     #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
+#     #         false_fn=_sum_min_distances(s_coords, g_coords))
+#     # )
+#
+#     size_of_g = tf.cast(tf.reduce_sum(y_true), dtype=tf.float32)
+#
+#     sum_min_distances_g_to_s = _sum_min_distances(g_coords, s_coords)
+#     sum_min_distances_s_to_g = _sum_min_distances(s_coords, g_coords)
+#
+#     # sum_min_distances_g_to_s = tf.reduce_sum(sum_min_distances_g_to_s)
+#     # sum_min_distances_s_to_g = tf.reduce_sum(sum_min_distances_s_to_g)
+#
+#     bahd_left = (sum_min_distances_g_to_s + smooth) / (size_of_g + smooth)
+#     bahd_right = (sum_min_distances_s_to_g + smooth) / (size_of_g + smooth)
+#
+#     return bahd_left + bahd_right
 
 
 def surface_distance_metric(y_true, y_pred, voxel_spacing=(1.0, 1.0, 1.0)):
