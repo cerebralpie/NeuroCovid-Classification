@@ -4,7 +4,6 @@ File's docstring - To be done
 import numpy as np
 import tensorflow as tf
 import tensorflow_io as tfio
-import pydicom
 import cv2
 from pathlib import Path
 from PIL import Image
@@ -50,13 +49,13 @@ def start_session() -> tf.distribute.OneDeviceStrategy:
     return strategy
 
 
-def dicom_to_tensor(dicom_file_path: Path) -> tf.Tensor:
-    file = pydicom.dcmread(fp=dicom_file_path)
-    image_array = file.pixel_array
-
-    tensor = tf.convert_to_tensor(image_array, dtype=tf.float32)
-
-    return tensor
+# def dicom_to_tensor(dicom_file_path: Path) -> tf.Tensor:
+#     file = pydicom.dcmread(fp=dicom_file_path)
+#     image_array = file.pixel_array
+#
+#     tensor = tf.convert_to_tensor(image_array, dtype=tf.float32)
+#
+#     return tensor
 
 
 def load_data(data_root_directory: Path,
