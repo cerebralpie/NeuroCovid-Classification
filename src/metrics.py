@@ -46,7 +46,9 @@ def dice_coefficient(y_true, y_pred, smooth=1.0):
 
 
 # Continuous Dice Coefficient (CDC)
-def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
+def continuous_dice_coefficient(y_true: tf.Tensor,
+                                y_pred: tf.Tensor,
+                                smooth=1.0) -> tf.Tensor:
     """
     For a binary segmentation task, calculate the Continuous Dice Coefficient
     (CDC) between a ground truth G (y_true) and a predicted segmentation S
@@ -70,30 +72,30 @@ def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
         a CDC value of 0 signifies no overlap between the segmented image and
         the ground truth.
     """
-    y_true = layers.Flatten()(y_true)
-    y_pred = layers.Flatten()(y_pred)
+    y_true = K.flatten(y_true)
+    y_pred = K.flatten(y_pred)
 
     y_true = tf.cast(y_true, tf.float32)
     y_pred = tf.cast(y_pred, tf.float32)
 
-    sign_of_s = tf.sign(y_pred)
-    size_of_g_intersect_s = tf.reduce_sum(y_true * y_pred)
-    size_of_g = tf.reduce_sum(y_true)
-    size_of_s = tf.reduce_sum(y_pred)
+    sign_of_s = K.sign(y_pred)
+    size_of_g_intersect_s = K.sum(y_true * y_pred)
+    size_of_g = K.sum(y_true)
+    size_of_s = K.sum(y_pred)
 
     c_numerator = size_of_g_intersect_s
-    c_denominator = tf.reduce_sum(y_true * sign_of_s)
+    c_denominator = K.sum(y_true * sign_of_s)
 
     c = tf.cond(
-        pred=tf.equal(c_denominator,
-                      tf.cast(tf.constant(0.0), c_denominator.dtype)),
+        pred=K.equal(c_denominator,
+                     tf.cast(tf.constant(0.0), c_denominator.dtype)),
         true_fn=lambda: tf.constant(1.0, dtype=tf.float32),
         false_fn=lambda: (c_numerator / c_denominator)
     )
 
-    cdc_numerator = 2 * size_of_g_intersect_s
+    cdc_numerator = 2.0 * size_of_g_intersect_s
     cdc_denominator = (c * size_of_g) + size_of_s
-    cdc_value = ((cdc_numerator + smooth) / (cdc_denominator + smooth))
+    cdc_value = (cdc_numerator + smooth) / (cdc_denominator + smooth)
 
     return cdc_value
 
@@ -116,7 +118,7 @@ def cdc_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         loss of 1 means that there's no overlap between the predicted
         segmentation and the ground truth.
     """
-    return 1.0 - cdc(y_true=y_true, y_pred=y_pred)
+    return 1.0 - continuous_dice_coefficient(y_true=y_true, y_pred=y_pred)
 
 
 # # Balanced Average Hausdorff Distance (BAHD)
