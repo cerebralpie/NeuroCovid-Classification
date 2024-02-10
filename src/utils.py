@@ -344,3 +344,30 @@ def get_unique_dimensions(image_path: Path) -> set[tuple[int, int]]:
                 raise
 
     return unique_dimensions
+
+
+def get_smallest_image_dimension(image_path: Path) -> int:
+    """
+    Find the smallest height or width of all images in a directory.
+
+    This function uses the 'get_unique_dimensions' function to retrieve unique
+    (width, height) dimensions of all images in a directory. It then iterates
+    through these dimensions and finds the smallest value (either height or
+    width) across all images. Finally, it returns this smallest value as an
+    integer.
+
+    Args:
+        image_path: The path to the directory containing the images.
+
+    Returns:
+        An integer representing the smallest height or width value found amongst
+        all images in the directory.
+    """
+    unique_dimensions = get_unique_dimensions(image_path)
+
+    smallest_dimension = float('inf')
+
+    for width, height in unique_dimensions:
+        smallest_dimension = min(smallest_dimension, min(width, height))
+
+    return int(smallest_dimension)
