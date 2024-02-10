@@ -156,21 +156,20 @@ def read_image(image_path: Path,
     """
     try:
         # Check if the image is a DICOM file
-        # if image_path.suffix.lower() in [".dcm", ".dicom"]:
-        #     image_bytes = tf.io.read_file(image_path)
-        #     image_tensor = tfio.image.decode_dicom_image(image_bytes,
-        #                                                  dtype=tf.uint8,
-        #                                                  color_dim=True,
-        #                                                  on_error='lossy')
-        #     raw_image_array = image_tensor.numpy()
-        # else:
-
-        path = str(image_path)
-        color_mode = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
-        raw_image_array = cv2.imread(path, color_mode)
+        if image_path.suffix in [".dcm", ".dicom"]:
+            image_bytes = tf.io.read_file(image_path)
+            image_tensor = tfio.image.decode_dicom_image(image_bytes,
+                                                         dtype=tf.uint8,
+                                                         color_dim=True,
+                                                         on_error='lossy')
+            raw_image_array = image_tensor.numpy()
+        else:
+            path = str(image_path)
+            color_mode = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
+            raw_image_array = cv2.imread(path, color_mode)
 
         if raw_image_array is None:
-            raise FileNotFoundError(f"Image not found at path: {path}")
+            raise FileNotFoundError(f"Image not found at path: {image_path}")
 
         if not grayscale:
             raw_image_array = cv2.cvtColor(raw_image_array,
