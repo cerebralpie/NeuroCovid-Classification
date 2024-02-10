@@ -58,7 +58,8 @@ def start_session() -> tf.distribute.OneDeviceStrategy:
 #     return tensor
 
 
-def load_data(data_root_directory: Path,
+def load_data(image_directory: Path,
+              mask_directory: Path,
               split: float = 0.1) -> tuple[tuple[Path, Path],
                                            tuple[Path, Path],
                                            tuple[Path, Path]]:
@@ -71,8 +72,8 @@ def load_data(data_root_directory: Path,
     training, validation, and test sets using the provided 'split' ratio.
 
     Args:
-        data_root_directory: pathlib.Path object to the root directory
-                             containing "images" and "masks" subdirectories.
+        image_directory: The path to the directory containing the images.
+        mask_directory: The path to the directory containing the masks.
         split: Fraction of data to allocate for validation and test sets.
                Defaults to 0.1.
 
@@ -91,8 +92,8 @@ def load_data(data_root_directory: Path,
         ValueError: If the number of images and masks does not match.
     """
     try:
-        image_paths = sorted(data_root_directory.glob("images/*"))
-        mask_paths = sorted(data_root_directory.glob("masks/*"))
+        image_paths = sorted(image_directory.glob("*"))
+        mask_paths = sorted(mask_directory.glob("*"))
 
         if not image_paths or not mask_paths:
             raise FileNotFoundError("Images or masks not found in the "
