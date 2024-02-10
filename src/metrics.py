@@ -2,15 +2,17 @@
 
 """
 import tensorflow as tf
+from tensorflow.keras import backend as K
 from tensorflow.keras import layers
 # from tensorflow_graphics.util import shape
 
 
 # Sørensen–Dice coefficient
-def dice_coef(y_true, y_pred, smooth=1e-4):
+def dice_coefficient(y_true, y_pred, smooth=1.0):
     """
-        For a binary segmentation task, calculate the Dice Coefficient between
-        a ground truth G (y_true) and a predicted segmentation S (y_pred).
+        For a binary segmentation task, calculate the Dice Coefficient (also
+        known as F1-Score) between a ground truth G (y_true) and a predicted
+        segmentation S (y_pred).
 
         This function first flattens the input tensors, and then calculates the
         Dice Coefficient based on the formula:
@@ -21,7 +23,7 @@ def dice_coef(y_true, y_pred, smooth=1e-4):
             y_true: A tensor containing the ground truth values.
             y_pred: A tensor containing the predicted values.
             smooth: A smoothing factor to prevent divisions by zero. Defaults
-                    to 1e-4.
+                    to 1.0.
 
         Returns:
             A tensor containing the Dice Coefficient with a value ranging from
@@ -30,13 +32,13 @@ def dice_coef(y_true, y_pred, smooth=1e-4):
             value of 0 signifies no overlap between the segmented image and the
             ground truth.
         """
-    y_true = layers.Flatten()(y_true)
-    y_pred = layers.Flatten()(y_pred)
+    y_true_flat = K.flatten(y_true)
+    y_pred_flat = K.flatten(y_pred)
 
-    intersection = tf.reduce_sum(y_true * y_pred)
+    intersection = K.sum(y_true_flat * y_pred_flat)
 
-    dice_numerator = 2. * intersection + smooth
-    dice_denominator = tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + smooth
+    dice_numerator = 2.0 * intersection + smooth
+    dice_denominator = K.sum(y_true) + K.sum(y_pred) + smooth
 
     dice_value = dice_numerator / dice_denominator
 
@@ -44,7 +46,7 @@ def dice_coef(y_true, y_pred, smooth=1e-4):
 
 
 # Continuous Dice Coefficient (CDC)
-def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1e-4) -> tf.Tensor:
+def cdc(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
     """
     For a binary segmentation task, calculate the Continuous Dice Coefficient
     (CDC) between a ground truth G (y_true) and a predicted segmentation S
