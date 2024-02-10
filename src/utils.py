@@ -192,7 +192,7 @@ def read_image(image_path: Path,
         raise
 
 
-def get_data_augmentation_pipeline():
+def get_data_augmentation_pipeline() -> tf.keras.Sequential:
     """
     Create a data augmentation pipeline for brain MRI images.
 
