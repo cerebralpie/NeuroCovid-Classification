@@ -192,6 +192,40 @@ def read_image(image_path: Path,
         raise
 
 
+def get_data_augmentation_pipeline():
+    """
+    Create a data augmentation pipeline for brain MRI images.
+
+    This function defines a Keras Sequential model that performs random
+    translation and rotation on input images. This augmentation pipeline is
+    specifically designed for brain MRI data, using conservative values to
+    avoid introducing unrealistic distortions.
+
+    Returns:
+        A Keras Sequential model representing the data augmentation pipeline.
+    """
+    augmentation_pipeline = tf.keras.Sequential(
+        [
+            tf.keras.layers.RandomTranslation(
+                height_factor=(-0.05, 0.05),
+                width_factor=(-0.05, 0.05),
+                fill_mode='reflect',
+                interpolation='bilinear',
+                seed=SEED
+            ),
+
+            tf.keras.layers.RandomRotation(
+                factor=(-0.05, 0.05),
+                fill_mode='reflect',
+                interpolation='bilinear',
+                seed=SEED
+            ),
+        ]
+    )
+
+    return augmentation_pipeline
+
+
 def get_tensorflow_dataset(image_mask_paths: tuple[list[Path], list[Path]],
                            image_size: int,
                            batch_size: int = 32) -> tf.data.Dataset:
