@@ -7,6 +7,7 @@ from tensorflow.keras.layers import (
     MaxPooling2D, Dropout, Input, concatenate, Cropping2D,
     SpatialDropout2D,
 )
+from tensorflow.keras.models import Model
 
 
 def _conv2d_block(
@@ -144,3 +145,96 @@ def _get_cropping_dimensions(
         left_crop, right_crop = total_width_crop // 2, total_width_crop // 2 + 1
 
     return (top_crop, bottom_crop), (left_crop, right_crop)
+
+
+def unet_model(
+    input_shape: tuple[int, int, int],
+    num_classes: int = 1,
+    dropout_rate: float = 0.5,
+    num_filters: int = 64,
+    num_layers: int = 4,
+    output_activation: str = 'sigmoid',
+    augment_data: bool = False
+) -> tf.keras.models.Model:
+    """
+    Create a U-Net model for image segmentation.
+
+    This function implements a U-Net model suitable for image segmentation
+    tasks. It uses a standard encoder-decoder architecture with skip connections
+    between corresponding layers to preserve spatial information. Data
+    augmentation can be applied before feeding the input into the network.
+
+    Args:
+        input_shape: A tuple representing the shape of the input images.
+        num_classes: The number of segmentation classes (including background).
+                     Defaults to 1.
+        dropout_rate: The dropout rate to apply for regularization. Defaults to
+                      0.5.
+        num_filters: The initial number of filters in the first convolutional
+                     layer. Defaults to 16.
+        num_layers: The number of encoding/decoding layers (excluding
+                    bottleneck). Defaults to 4.
+        output_activation: The activation function to use for the final output
+                           layer. Defaults to 'sigmoid'.
+        augment_data: Whether to apply data augmentation to the input dataset.
+                      Defaults to False.
+
+    Returns:
+        A TensorFlow keras Model instance representing the U-Net model.
+    """
+    inputs = Input(shape=input_shape)
+    x = inputs
+
+    if augment_data:
+        x = nc_utils.get_data_augmentation_pipeline()(x)
+
+    # Encoding layers
+    encoding_layers = []
+    for i in range(num_layers):
+        x = _conv2d_block(inputs=x,
+                          num_filters=num_filters,
+                          use_batch_normalization=False,
+                          dropout_rate=0.0,
+                          padding='valid')
+        encoding_layers.append(x)
+
+        x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
+
+        num_filters = num_filters * 2
+
+    # Bottleneck
+    x = Dropout(dropout_rate)(x)
+    x = _conv2d_block(inputs=x,
+                      num_filters=num_filters,
+                      use_batch_normalization=False,
+                      dropout_rate=0.0,
+                      padding='valid')
+
+    # Decoding layers
+    for layer in reversed(encoding_layers):
+        num_filters = num_filters // 2
+
+        x = Conv2DTranspose(filters=num_filters,
+                            kernel_size=(2, 2),
+                            strides=(2, 2),
+                            padding='valid')(x)
+
+        height_crops, width_crops = _get_cropping_dimensions(
+                                                           target_tensor=layer,
+                                                           reference_tensor=x)
+        layer = Cropping2D(cropping=(height_crops, width_crops))(layer)
+
+        x = concatenate([x, layer])
+        x = _conv2d_block(inputs=x,
+                          num_filters=num_filters,
+                          use_batch_normalization=False,
+                          dropout_rate=0.0,
+                          padding='valid')
+
+    outputs = Conv2D(filters=num_classes,
+                     kernel_size=(1, 1),
+                     activation=output_activation)(x)
+
+    model = Model(inputs=[inputs], outputs=[outputs])
+
+    return model
