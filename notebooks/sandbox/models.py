@@ -149,13 +149,13 @@ def _get_cropping_dimensions(
 
 
 def unet_model(
-    input_shape: tuple[int, int, int],
-    num_classes: int = 1,
-    dropout_rate: float = 0.5,
-    num_filters: int = 64,
-    num_layers: int = 4,
-    output_activation: str = 'sigmoid',
-    augment_data: bool = False
+        input_shape: tuple[int, int, int],
+        num_classes: int = 1,
+        dropout_rate: float = 0.5,
+        num_filters: int = 64,
+        num_layers: int = 4,
+        output_activation: str = 'sigmoid',
+        augment_data: bool = False
 ) -> tf.keras.models.Model:
     """
     Create a U-Net model for image segmentation.
