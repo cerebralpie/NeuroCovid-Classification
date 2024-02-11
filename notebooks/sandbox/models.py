@@ -90,7 +90,8 @@ def _conv2d_block(
 
 def _get_cropping_dimensions(
         target_tensor: tf.Tensor,
-        reference_tensor: tf.Tensor) -> tuple[tuple[int, int], tuple[int, int]]:
+        reference_tensor: tf.Tensor
+) -> tuple[tuple[int, int], tuple[int, int]]:
     """
     Calculate the cropping dimensions needed to align a target tensor with a
     reference tensor.
