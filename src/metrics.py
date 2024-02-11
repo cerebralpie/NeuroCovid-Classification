@@ -3,7 +3,6 @@
 """
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras import layers
 # from tensorflow_graphics.util import shape
 
 
@@ -72,6 +71,9 @@ def continuous_dice_coefficient(y_true: tf.Tensor,
         a CDC value of 0 signifies no overlap between the segmented image and
         the ground truth.
     """
+    if y_pred.shape != y_true.shape:
+        y_pred = tf.image.resize(y_pred, y_true.shape[1:3], method='bilinear')
+
     y_true = K.flatten(y_true)
     y_pred = K.flatten(y_pred)
 
