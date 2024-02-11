@@ -4,8 +4,87 @@ import src.utils as nc_utils
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import (
     BatchNormalization, Conv2D, Conv2DTranspose,
-    MaxPooling2D, Dropout, Input, concatenate, Cropping2D
+    MaxPooling2D, Dropout, Input, concatenate, Cropping2D,
+    SpatialDropout2D,
 )
+
+
+def _conv2d_block(
+        inputs: tf.Tensor,
+        use_batch_normalization: bool = True,
+        dropout_rate: float = 0.3,
+        dropout_type: str = 'spatial',
+        num_filters: int = 16,
+        kernel_size: tuple[int, int] = (3, 3),
+        activation: str = 'relu',
+        kernel_initializer: str = 'he_normal',
+        padding: str = 'same'
+) -> tf.tensor:
+    """
+    Create a convolutional block consisting of two convolutional layers with
+    optional batch normalization and dropout.
+
+    Args:
+        inputs: The input tensor to the block.
+        use_batch_normalization: Whether to apply batch normalization after each
+                                 convolution. Defaults to True.
+        dropout_rate: The dropout rate to apply. Set to 0.0 to disable dropout.
+                      Defaults to 0.3.
+        dropout_type: The type of dropout to apply, either 'spatial' or
+                      'standard'. Defaults to 'spatial'.
+        num_filters: The number of filters for each convolutional layer.
+                     Defaults to 16.
+        kernel_size: The kernel size for each convolutional layer. Defaults to
+                     (3, 3).
+        activation: The activation function to use after each convolution.
+                    Defaults to 'relu'.
+        kernel_initializer: The kernel initializer for the convolutional layers.
+                            Defaults to 'he_normal'.
+        padding: The padding to use for the convolutional layers. Defaults to
+                 'same'.
+
+    Returns:
+        The output tensor of the convolutional block
+
+    Raises:
+        ValueError: If the dropout_type is not 'spatial' or 'standard'.
+    """
+    if dropout_type == 'spatial':
+        drop = SpatialDropout2D
+    elif dropout_type == 'standard':
+        drop = Dropout
+    else:
+        raise ValueError(
+            f"dropout_type must be one of ['spatial', 'standard'] got "
+            f"{dropout_type} instead."
+        )
+
+    # First convolutional layer
+    x = Conv2D(filters=num_filters,
+               kernel_size=kernel_size,
+               activation=activation,
+               kernel_initializer=kernel_initializer,
+               padding=padding,
+               use_bias=not use_batch_normalization)(inputs)
+
+    if use_batch_normalization:
+        x = BatchNormalization()(x)
+
+    if dropout_rate > 0.0:
+        x = drop(dropout_rate)(x)
+
+    # Second convolutional layer
+    x = Conv2D(filters=num_filters,
+               kernel_size=kernel_size,
+               activation=activation,
+               kernel_initializer=kernel_initializer,
+               padding=padding,
+               use_bias=not use_batch_normalization)(x)
+
+    if use_batch_normalization:
+        x = BatchNormalization()(x)
+
+    return x
 
 
 def _get_cropping_dimensions(
