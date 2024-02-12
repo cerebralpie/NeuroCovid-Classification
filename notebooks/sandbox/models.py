@@ -20,7 +20,7 @@ def _conv2d_block(
         activation: str = 'relu',
         kernel_initializer: str = 'he_normal',
         padding: str = 'same'
-) -> tf.tensor:
+) -> tf.Tensor:
     """
     Create a convolutional block consisting of two convolutional layers with
     optional batch normalization and dropout.
