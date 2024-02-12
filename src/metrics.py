@@ -31,9 +31,6 @@ def dice_coefficient(y_true, y_pred, smooth=1.0):
             value of 0 signifies no overlap between the segmented image and the
             ground truth.
         """
-    if y_pred.shape != y_true.shape:
-        y_pred = tf.image.resize(y_pred, y_true.shape[1:3], method='bilinear')
-
     y_true_flat = K.flatten(y_true)
     y_pred_flat = K.flatten(y_pred)
 
@@ -74,9 +71,6 @@ def continuous_dice_coefficient(y_true: tf.Tensor,
         a CDC value of 0 signifies no overlap between the segmented image and
         the ground truth.
     """
-    if y_pred.shape != y_true.shape:
-        y_pred = tf.image.resize(y_pred, y_true.shape[1:3], method='bilinear')
-
     y_true = K.flatten(y_true)
     y_pred = K.flatten(y_pred)
 
