@@ -150,16 +150,12 @@ def _get_cropping_dimensions(
 
 def unet_model(
         input_shape: tuple[int, int, int],
-        custom_skip_connections: tuple[tf.Tensor],
-        custom_cnn_output: tf.Tensor,
         num_classes: int = 1,
         dropout_rate: float = 0.5,
         num_filters: int = 64,
         num_layers: int = 4,
         output_activation: str = 'sigmoid',
-        augment_data: bool = False,
-        custom_encoder: bool = False,
-
+        augment_data: bool = False
 ) -> tf.keras.models.Model:
     """
     Create a U-Net model for image segmentation.
@@ -195,21 +191,17 @@ def unet_model(
 
     # Encoding layers
     skip_connections = []
-    if not custom_encoder:
-        for i in range(num_layers):
-            x = _conv2d_block(inputs=x,
-                              num_filters=num_filters,
-                              use_batch_normalization=False,
-                              dropout_rate=0.0,
-                              padding='valid')
-            skip_connections.append(x)
+    for i in range(num_layers):
+        x = _conv2d_block(inputs=x,
+                          num_filters=num_filters,
+                          use_batch_normalization=False,
+                          dropout_rate=0.0,
+                          padding='valid')
+        skip_connections.append(x)
 
-            x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
+        x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
 
-            num_filters = num_filters * 2
-    else:
-        skip_connections = custom_skip_connections
-        x = custom_cnn_output
+        num_filters = num_filters * 2
 
     # Bottleneck
     x = Dropout(dropout_rate)(x)
@@ -220,7 +212,7 @@ def unet_model(
                       padding='valid')
 
     # Decoding layers
-    for layer in reversed(skip_connections):
+    for skip_connection in reversed(skip_connections):
         num_filters = num_filters // 2
 
         x = Conv2DTranspose(filters=num_filters,
@@ -228,12 +220,16 @@ def unet_model(
                             strides=(2, 2),
                             padding='valid')(x)
 
-        height_crops, width_crops = _get_cropping_dimensions(
-                                                           target_tensor=layer,
-                                                           reference_tensor=x)
-        layer = Cropping2D(cropping=(height_crops, width_crops))(layer)
+        height_crop, width_crop = _get_cropping_dimensions(
+            target_tensor=skip_connection,
+            reference_tensor=x
+        )
 
-        x = concatenate([x, layer])
+        skip_connection = Cropping2D(
+            cropping=(height_crop, width_crop)
+        )(skip_connection)
+
+        x = concatenate([x, skip_connection])
         x = _conv2d_block(inputs=x,
                           num_filters=num_filters,
                           use_batch_normalization=False,
