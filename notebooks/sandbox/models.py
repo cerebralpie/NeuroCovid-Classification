@@ -150,12 +150,16 @@ def _get_cropping_dimensions(
 
 def unet_model(
         input_shape: tuple[int, int, int],
+        custom_skip_connections: tuple[tf.Tensor],
+        custom_cnn_output: tf.Tensor,
         num_classes: int = 1,
         dropout_rate: float = 0.5,
         num_filters: int = 64,
         num_layers: int = 4,
         output_activation: str = 'sigmoid',
-        augment_data: bool = False
+        augment_data: bool = False,
+        custom_encoder: bool = False,
+
 ) -> tf.keras.models.Model:
     """
     Create a U-Net model for image segmentation.
@@ -190,18 +194,22 @@ def unet_model(
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
     # Encoding layers
-    encoding_layers = []
-    for i in range(num_layers):
-        x = _conv2d_block(inputs=x,
-                          num_filters=num_filters,
-                          use_batch_normalization=False,
-                          dropout_rate=0.0,
-                          padding='valid')
-        encoding_layers.append(x)
+    skip_connections = []
+    if not custom_encoder:
+        for i in range(num_layers):
+            x = _conv2d_block(inputs=x,
+                              num_filters=num_filters,
+                              use_batch_normalization=False,
+                              dropout_rate=0.0,
+                              padding='valid')
+            skip_connections.append(x)
 
-        x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
+            x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
 
-        num_filters = num_filters * 2
+            num_filters = num_filters * 2
+    else:
+        skip_connections = custom_skip_connections
+        x = custom_cnn_output
 
     # Bottleneck
     x = Dropout(dropout_rate)(x)
@@ -212,7 +220,7 @@ def unet_model(
                       padding='valid')
 
     # Decoding layers
-    for layer in reversed(encoding_layers):
+    for layer in reversed(skip_connections):
         num_filters = num_filters // 2
 
         x = Conv2DTranspose(filters=num_filters,
