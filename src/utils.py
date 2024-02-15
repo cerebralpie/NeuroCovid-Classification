@@ -2,6 +2,7 @@
 File's docstring - To be done
 """
 import numpy as np
+import os
 import tensorflow as tf
 import tensorflow_io as tfio
 import cv2
@@ -58,11 +59,11 @@ def start_session() -> tf.distribute.OneDeviceStrategy:
 #     return tensor
 
 
-def load_data(image_directory: Path,
-              mask_directory: Path,
-              split: float = 0.1) -> tuple[tuple[Path, Path],
-                                           tuple[Path, Path],
-                                           tuple[Path, Path]]:
+def load_data(image_directory: str,
+              mask_directory: str,
+              split: float = 0.1) -> tuple[tuple[list[str], list[str]],
+                                           tuple[list[str], list[str]],
+                                           tuple[list[str], list[str]]]:
     """
     Load and split image and mask paths from a given directory for machine
     learning tasks.
@@ -92,8 +93,10 @@ def load_data(image_directory: Path,
         ValueError: If the number of images and masks does not match.
     """
     try:
-        image_paths = sorted(image_directory.glob("*"))
-        mask_paths = sorted(mask_directory.glob("*"))
+        image_paths = sorted(os.path.join(image_directory, filename)
+                             for filename in os.listdir(image_directory))
+        mask_paths = sorted(os.path.join(mask_directory, filename)
+                            for filename in os.listdir(mask_directory))
 
         if not image_paths or not mask_paths:
             raise FileNotFoundError("Images or masks not found in the "
@@ -129,7 +132,7 @@ def load_data(image_directory: Path,
         raise
 
 
-def read_image(image_path: Path,
+def read_image(image_path: str,
                image_shape: tuple[int, int],
                grayscale: bool = False) -> np.ndarray:
     """
@@ -156,8 +159,11 @@ def read_image(image_path: Path,
                    OpenCV.
     """
     try:
+        filename = os.path.basename(image_path)
+        _, suffix = os.path.splitext(filename)
+
         # Check if the image is a DICOM file
-        if image_path.suffix in [".dcm", ".dicom"]:
+        if suffix.lower() in [".dcm", ".dicom"]:
             image_bytes = tf.io.read_file(image_path)
             image_tensor = tfio.image.decode_dicom_image(image_bytes,
                                                          dtype=tf.uint8,
@@ -165,9 +171,8 @@ def read_image(image_path: Path,
                                                          on_error='lossy')
             raw_image_array = image_tensor.numpy()
         else:
-            path = str(image_path)
             color_mode = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
-            raw_image_array = cv2.imread(path, color_mode)
+            raw_image_array = cv2.imread(image_path, color_mode)
 
         if raw_image_array is None:
             raise FileNotFoundError(f"Image not found at path: {image_path}")
@@ -180,8 +185,7 @@ def read_image(image_path: Path,
         resized_image_array = cv2.resize(raw_image_array, image_shape)
 
         # Normalize the pixel values to the range [0, 1]
-        normalized_image_array = resized_image_array / np.linalg.norm(
-            resized_image_array)
+        normalized_image_array = resized_image_array / 255.0
 
         if grayscale:
             normalized_image_array = np.expand_dims(normalized_image_array,
@@ -191,6 +195,93 @@ def read_image(image_path: Path,
 
     except (FileNotFoundError, cv2.error):
         raise
+
+
+def get_tensorflow_dataset(image_mask_paths: tuple[list[str], list[str]],
+                           image_size: int,
+                           batch_size: int = 32) -> tf.data.Dataset:
+    """
+    Generate a TensorFlow dataset from given image and mask paths.
+
+    This function reads the images and masks from the provided paths, resizes
+    them to the specified size, and returns a batched TensorFlow dataset. The
+    dataset repeats indefinitely.
+
+    Args:
+        image_mask_paths: A tuple containing two lists of pathlib.Path objects.
+                          The first list contains the paths to the images and
+                          the second list contains the paths to the masks.
+        image_size: The size to which images and masks will be resized. The
+                    images and masks are assumed to be square.
+        batch_size: The number of elements in each batch of the dataset.
+                    Defaults to 32.
+
+    Returns:
+        A batched TensorFlow dataset (tf.data.Dataset) containing the images and
+        masks.
+
+    Raises:
+        FileNotFoundError: If an image or mask file does not exist.
+        ValueError: If an image or mask cannot be read or resized.
+    """
+    def _parse_image_and_mask(
+            image_path_tensor: tf.Tensor,
+            mask_path_tensor: tf.Tensor
+    ) -> tuple[tf.Tensor, tf.Tensor]:
+        """
+        Parse the image and mask paths and returns the corresponding tensors.
+
+        Args:
+            image_path_tensor: A tensor containing the path to a single image.
+            mask_path_tensor: A tensor containing the path to the ground truth
+                              of the image in image_path_tensor.
+
+        Returns:
+            A tuple containing the image tensor and mask tensor.
+        """
+        def _read_and_process_image_and_mask(
+                image_path_bytes: bytes,
+                mask_path_bytes: bytes
+        ) -> tuple[np.ndarray, np.ndarray]:
+            """
+            Read the image and mask files and returns the corresponding arrays.
+
+            Args:
+                image_path_bytes: Bytes corresponding to the path to the image
+                mask_path_bytes: Bytes corresponding to the path to the mask.
+
+            Returns:
+                A tuple containing the image array and mask array
+            """
+            sub_image_path = image_path_bytes.decode('utf-8')
+            sub_mask_path = mask_path_bytes.decode('utf-8')
+
+            image_array = read_image(image_path=sub_image_path,
+                                     image_shape=(image_size, image_size),
+                                     grayscale=False)
+            mask_array = read_image(image_path=sub_mask_path,
+                                    image_shape=(image_size, image_size),
+                                    grayscale=True)
+
+            return image_array, mask_array
+
+        image_tensor, mask_tensor = tf.numpy_function(
+            _read_and_process_image_and_mask,
+            [image_path_tensor, mask_path_tensor],
+            [tf.float32, tf.float32]
+        )
+        image_tensor.set_shape([image_size, image_size, 3])
+        mask_tensor.set_shape([image_size, image_size, 1])
+
+        return image_tensor, mask_tensor
+
+    dataset = tf.data.Dataset.from_tensor_slices((image_mask_paths[0],
+                                                  image_mask_paths[1]))
+    dataset = dataset.map(_parse_image_and_mask)
+    dataset = dataset.batch(batch_size=batch_size)
+    dataset = dataset.repeat()
+
+    return dataset
 
 
 def get_data_augmentation_pipeline() -> tf.keras.Sequential:
@@ -227,93 +318,7 @@ def get_data_augmentation_pipeline() -> tf.keras.Sequential:
     return augmentation_pipeline
 
 
-def get_tensorflow_dataset(image_mask_paths: tuple[list[Path], list[Path]],
-                           image_size: int,
-                           batch_size: int = 32) -> tf.data.Dataset:
-    """
-    Generate a TensorFlow dataset from given image and mask paths.
-
-    This function reads the images and masks from the provided paths, resizes
-    them to the specified size, and returns a batched TensorFlow dataset. The
-    dataset repeats indefinitely.
-
-    Args:
-        image_mask_paths: A tuple containing two lists of pathlib.Path objects.
-                          The first list contains the paths to the images and
-                          the second list contains the paths to the masks.
-        image_size: The size to which images and masks will be resized. The
-                    images and masks are assumed to be square.
-        batch_size: The number of elements in each batch of the dataset.
-                    Defaults to 32.
-
-    Returns:
-        A batched TensorFlow dataset (tf.data.Dataset) containing the images and
-        masks.
-
-    Raises:
-        FileNotFoundError: If an image or mask file does not exist.
-        ValueError: If an image or mask cannot be read or resized.
-    """
-    def _parse_image_and_mask(
-            image_path: Path,
-            mask_path: Path
-    ) -> tuple[tf.Tensor, tf.Tensor]:
-        """
-        Parse the image and mask paths and returns the corresponding tensors.
-
-        Args:
-            image_path: The path to the image file.
-            mask_path: The path to the mask file.
-
-        Returns:
-            A tuple containing the image tensor and mask tensor.
-        """
-        def _read_and_process_image_and_mask(
-                sub_image_path: Path,
-                sub_mask_path: Path
-        ) -> tuple[np.ndarray, np.ndarray]:
-            """
-            Read the image and mask files and returns the corresponding arrays.
-
-            Args:
-                sub_image_path: The path to the image file.
-                sub_mask_path: The path to the mask file.
-
-            Returns:
-                A tuple containing the image array and mask array
-            """
-            image_array = read_image(image_path=sub_image_path,
-                                     image_shape=(image_size, image_size),
-                                     grayscale=False)
-            mask_array = read_image(image_path=sub_mask_path,
-                                    image_shape=(image_size, image_size),
-                                    grayscale=True)
-
-            return image_array, mask_array
-
-        image_tensor, mask_tensor = tf.numpy_function(
-            _read_and_process_image_and_mask,
-            [image_path, mask_path],
-            [tf.float32, tf.float32]
-        )
-        image_tensor.set_shape([image_size, image_size, 3])
-        mask_tensor.set_shape([image_size, image_size, 1])
-
-        return image_tensor, mask_tensor
-
-    image_paths_strings = [str(path) for path in image_mask_paths[0]]
-    mask_paths_strings = [str(path) for path in image_mask_paths[1]]
-
-    dataset = tf.data.Dataset.from_tensor_slices((image_paths_strings,
-                                                 mask_paths_strings))
-    dataset = dataset.map(_parse_image_and_mask)
-    dataset = dataset.batch(batch_size=batch_size)
-    dataset = dataset.repeat()
-
-    return dataset
-
-
-def get_unique_dimensions(image_path: Path) -> set[tuple[int, int]]:
+def get_unique_dimensions(image_path: str) -> set[tuple[int, int]]:
     """
     Get the unique dimensions of all images in a specified directory
 
@@ -336,10 +341,11 @@ def get_unique_dimensions(image_path: Path) -> set[tuple[int, int]]:
     """
     unique_dimensions = set()
 
-    for file in image_path.iterdir():
-        if file.is_file():
+    for filename in os.listdir(image_path):
+        filepath = os.path.join(image_path, filename)
+        if os.path.isfile(filepath):
             try:
-                with Image.open(file) as img:
+                with Image.open(filepath) as img:
                     unique_dimensions.add(img.size)
             except (UnidentifiedImageError, IOError):
                 raise
@@ -347,7 +353,7 @@ def get_unique_dimensions(image_path: Path) -> set[tuple[int, int]]:
     return unique_dimensions
 
 
-def get_smallest_image_dimension(image_path: Path) -> int:
+def get_smallest_image_dimension(image_path: str) -> int:
     """
     Find the smallest height or width of all images in a directory.
 

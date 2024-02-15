@@ -91,7 +91,7 @@ def _conv2d_block(
 def _get_cropping_dimensions(
         target_tensor: tf.Tensor,
         reference_tensor: tf.Tensor
-) -> tuple[tuple[int, int], tuple[int, int]]:
+) -> tuple[tuple[int, int], tuple[int, int]] | tuple[None, None]:
     """
     Calculate the cropping dimensions needed to align a target tensor with a
     reference tensor.
@@ -123,6 +123,9 @@ def _get_cropping_dimensions(
 
     total_height_crop = target_height - reference_height
     total_width_crop = target_width - reference_width
+
+    if total_height_crop == 0 and total_width_crop == 0:
+        return None, None
 
     if total_height_crop <= 0 and total_width_crop <= 0:
         raise ValueError("The target tensor has smaller height and width than "
@@ -194,9 +197,8 @@ def unet_model(
     for i in range(num_layers):
         x = _conv2d_block(inputs=x,
                           num_filters=num_filters,
-                          use_batch_normalization=False,
-                          dropout_rate=0.0,
-                          padding='valid')
+                          use_batch_normalization=True,
+                          dropout_rate=0.0)
         skip_connections.append(x)
 
         x = MaxPooling2D(pool_size=(2, 2), strides=2)(x)
@@ -204,12 +206,11 @@ def unet_model(
         num_filters = num_filters * 2
 
     # Bottleneck
-    x = Dropout(dropout_rate)(x)
+    # x = Dropout(dropout_rate)(x)
     x = _conv2d_block(inputs=x,
                       num_filters=num_filters,
-                      use_batch_normalization=False,
-                      dropout_rate=0.0,
-                      padding='valid')
+                      use_batch_normalization=True,
+                      dropout_rate=0.0)
 
     # Decoding layers
     for skip_connection in reversed(skip_connections):
@@ -218,23 +219,23 @@ def unet_model(
         x = Conv2DTranspose(filters=num_filters,
                             kernel_size=(2, 2),
                             strides=(2, 2),
-                            padding='valid')(x)
+                            padding='same')(x)
 
         height_crop, width_crop = _get_cropping_dimensions(
             target_tensor=skip_connection,
             reference_tensor=x
         )
 
-        skip_connection = Cropping2D(
-            cropping=(height_crop, width_crop)
-        )(skip_connection)
+        if height_crop is not None and width_crop is not None:
+            skip_connection = Cropping2D(
+                cropping=(height_crop, width_crop)
+            )(skip_connection)
 
         x = concatenate([x, skip_connection])
         x = _conv2d_block(inputs=x,
                           num_filters=num_filters,
-                          use_batch_normalization=False,
-                          dropout_rate=0.0,
-                          padding='valid')
+                          use_batch_normalization=True,
+                          dropout_rate=0.0)
 
     outputs = Conv2D(filters=num_classes,
                      kernel_size=(1, 1),
