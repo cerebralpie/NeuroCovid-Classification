@@ -155,7 +155,7 @@ def unet_model(
         input_shape: tuple[int, int, int],
         num_classes: int = 1,
         dropout_rate: float = 0.5,
-        num_filters: int = 64,
+        num_filters: int = 16,
         num_layers: int = 4,
         output_activation: str = 'sigmoid',
         augment_data: bool = False
