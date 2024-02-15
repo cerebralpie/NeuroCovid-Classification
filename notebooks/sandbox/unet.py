@@ -14,7 +14,6 @@ from tensorflow.keras import metrics
 from tensorflow.keras import models
 
 from tensorflow.keras.metrics import Recall, Precision
-from notebooks.sandbox.unet_test import unet_test
 
 
 if __name__ == '__main__':
@@ -24,13 +23,14 @@ if __name__ == '__main__':
     IMAGE_DIR = os.path.join(ROOT_DIR, "images")
     MASK_DIR = os.path.join(ROOT_DIR, "masks")
 
-    BATCH_SIZE = 16
+    BATCH_SIZE = 8
     LR = 1e-4  # Learning rate
     EPOCHS = 300
 
     smallest_dimension = nc_utils.get_smallest_image_dimension(IMAGE_DIR)
 
-    IMAGE_SIZE = smallest_dimension
+    #IMAGE_SIZE = smallest_dimension
+    IMAGE_SIZE = 256
     IMAGE_SHAPE = (IMAGE_SIZE, IMAGE_SIZE)
     INPUT_SHAPE = (IMAGE_SIZE, IMAGE_SIZE, 3)
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     # Initiating model on GPU
     with strategy.scope():
-        model = unet_test(image_size=IMAGE_SIZE)
+        model = nc_models.unet_model(input_shape=INPUT_SHAPE, augment_data=True, num_filters=8)
         metrics=[Recall(), Precision()]
         loss=nc_metrics.cdc_loss
         opt=tf.keras.optimizers.Nadam(LR)

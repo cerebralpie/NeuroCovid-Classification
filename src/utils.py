@@ -176,6 +176,8 @@ def read_image(image_path: str,
 
         if raw_image_array is None:
             raise FileNotFoundError(f"Image not found at path: {image_path}")
+        else:
+            raw_image_array = raw_image_array.astype('f')
 
         if not grayscale:
             raw_image_array = cv2.cvtColor(raw_image_array,
