@@ -29,7 +29,7 @@ def siamese_model():
     left_model = model(input1)
     right_model = model(input2)
 
-    dot_product = dot([left_model, right_model], axes=1, normalize=False)
+    dot_product = dot([left_model, right_model], axes=3, normalize=False)
 
     siamese = Model(inputs=[input1, input2], outputs=dot_product)
 
