@@ -6,7 +6,6 @@ import os
 import tensorflow as tf
 import tensorflow_io as tfio
 import cv2
-from pathlib import Path
 from PIL import Image
 from PIL import UnidentifiedImageError
 from sklearn.model_selection import train_test_split
