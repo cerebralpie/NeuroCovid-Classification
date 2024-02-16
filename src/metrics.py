@@ -44,6 +44,29 @@ def dice_coefficient(y_true, y_pred, smooth=1.0):
     return dice_value
 
 
+# Dice Coefficient Loss
+def dice_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+    """
+    Calculate the Dice Coefficient Loss (also known as the Sørensen–Dice Loss)
+    for binary segmentation tasks.
+
+    This loss function is based on the Dice Coefficient, a measure of overlap
+    between two sets. It's particularly useful for imbalanced segmentation problems.
+    A lower Dice Coefficient Loss indicates a better overlap between the predicted
+    segmentation and the ground truth.
+
+    Args:
+        y_true: A tensor containing the ground truth values.
+        y_pred: A tensor containing the predicted values.
+
+    Returns:
+        A tensor containing the Dice Coefficient Loss, with a value ranging
+        from 0 to 1. A loss of 0 indicates perfect segmentation, while a loss of
+        1 indicates no overlap between the prediction and the ground truth.
+    """
+    return 1.0 - dice_coefficient(y_true=y_true, y_pred=y_pred)
+
+
 # Continuous Dice Coefficient (CDC)
 def continuous_dice_coefficient(y_true: tf.Tensor,
                                 y_pred: tf.Tensor,
