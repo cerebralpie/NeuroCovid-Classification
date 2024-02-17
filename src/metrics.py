@@ -3,7 +3,7 @@
 """
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow_graphics.util import shape
+# from tensorflow_graphics.util import shape
 
 
 # Sørensen–Dice coefficient
@@ -183,18 +183,18 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
             A tensor of shape (n,) containing the minimum squared Euclidean
             distance from each point in set1 to any point in set2.
         """
-        shape.compare_batch_dimensions(
-            tensors=(set_a, set_b),
-            tensor_names=("set1", "set2"),
-            last_axes=-3,
-            broadcast_compatible=True)
-
-        # Verify that the last axis of the tensors have the same dimension
-        dimension = set_a.shape.as_list()[-1]
-        shape.check_static(
-            tensor=set_b,
-            tensor_name="set2",
-            has_dim_equals=(-1, dimension))
+        # shape.compare_batch_dimensions(
+        #     tensors=(set_a, set_b),
+        #     tensor_names=("set1", "set2"),
+        #     last_axes=-3,
+        #     broadcast_compatible=True)
+        #
+        # # Verify that the last axis of the tensors have the same dimension
+        # dimension = set_a.shape.as_list()[-1]
+        # shape.check_static(
+        #     tensor=set_b,
+        #     tensor_name="set2",
+        #     has_dim_equals=(-1, dimension))
 
         # Create N x M matrix where the entry i,j corresponds to ai - bj
         # (vector of dimension D)
