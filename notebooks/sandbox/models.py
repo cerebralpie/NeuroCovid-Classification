@@ -9,7 +9,7 @@ from tensorflow.keras.layers import (
 )
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications import (
-    DenseNet201
+    DenseNet201, VGG19
 )
 
 
@@ -175,7 +175,7 @@ def densenet_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 16 + (2 ** (num_layers - 1))
+    num_filters = 16 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -197,6 +197,79 @@ def densenet_unet_model(
 
     return model
 
+def vgg_unet_model(
+        input_shape: tuple[int, int, int],
+        num_classes: int = 1,
+        augment_data: bool = False
+) -> Model:
+    """
+    Create a U-Net model for image segmentation.
+
+    This function implements a U-Net model suitable for image segmentation
+    tasks. It uses a standard encoder-decoder architecture with skip connections
+    between corresponding layers to preserve spatial information. Data
+    augmentation can be applied before feeding the input into the network.
+
+    Args:
+        input_shape: A tuple representing the shape of the input images.
+        num_classes: The number of segmentation classes (including background).
+                     Defaults to 1.
+        num_filters: The initial number of filters in the first convolutional
+                     layer. Defaults to 16.
+        num_layers: The number of encoding/decoding layers (excluding
+                    bottleneck). Defaults to 4.
+        augment_data: Whether to apply data augmentation to the input dataset.
+                      Defaults to False.
+
+    Returns:
+        A TensorFlow keras Model instance representing the U-Net model.
+    """
+    if num_classes > 1:
+        output_activation = "softmax"
+    elif num_classes == 1:
+        output_activation = "sigmoid"
+    else:
+        raise ValueError("Invalid number of classes")
+
+    inputs = Input(shape=input_shape)
+    x = inputs
+
+    if augment_data:
+        x = nc_utils.get_data_augmentation_pipeline()(x)
+
+    # Encoding layers
+    encoder = VGG19(input_tensor=x, weights="imagenet", include_top=False)
+    skip_connection_names = ["input_1", "block1_pool", "block2_pool", "block3_pool", "block4_pool"]
+    encoder_output = encoder.get_layer("block5_pool").output
+    num_layers = len(skip_connection_names)
+
+    skip_connections = []
+    for i in range(num_layers):
+        x_skip = encoder.get_layer(skip_connection_names[i]).output
+        skip_connections.append(x_skip)
+
+    # Bottleneck
+    num_filters = 16 * (2 ** (num_layers - 1))
+    x = encoder_output
+    x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    # Decoding layers
+    for skip_connection in reversed(skip_connections):
+        num_filters = num_filters // 2
+
+        x = UpSampling2D(size=(2, 2))(x)
+        x = Concatenate()([x, skip_connection])
+
+        x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    outputs = Conv2D(filters=num_classes,
+                     kernel_size=(1, 1),
+                     padding="same",
+                     activation=output_activation)(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    return model
 
 # def _conv2d_block(
 #         inputs: tf.Tensor,
