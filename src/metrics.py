@@ -220,61 +220,45 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
 
         # Create N x M matrix where the entry i,j corresponds to ai - bj
         # (vector of dimension D)
-        difference = (
-                tf.expand_dims(set_a, axis=-2) -
-                tf.expand_dims(set_b, axis=-3))
+        result = (tf.expand_dims(set_a, axis=-2) -
+                  tf.expand_dims(set_b, axis=-3))
 
         # Calculate the square distances between each two points: |ai - bj|^2.
-        square_distances = tf.einsum("...i,...i->...", difference, difference)
+        square_distances = tf.einsum("...i,...i->...", result, result)
 
-        minimum_square_distance_a_to_b = tf.reduce_min(
+        # Calculate the minimum square distances between a and b
+        result = tf.reduce_min(
             input_tensor=square_distances, axis=-1)
 
-        return tf.reduce_sum(
-            input_tensor=tf.sqrt(minimum_square_distance_a_to_b), axis=-1)
+        result = tf.reduce_sum(input_tensor=tf.sqrt(result), axis=-1)
 
-    # g_non_zero = tf.math.count_nonzero(y_true, dtype=tf.int32)
-    # s_non_zero = tf.math.count_nonzero(y_pred, dtype=tf.int32)
+        return result
 
-    g_coords = tf.cast(tf.where(y_true > 0.5), dtype=tf.float32)
-    s_coords = tf.cast(tf.where(y_pred > 0.5), dtype=tf.float32)
+    # Special Case 1: If both are all zeros
+    if tf.reduce_all(tf.equal(y_true, 0.0)) and tf.reduce_all(
+            tf.equal(y_pred, 0.0)):
+        return tf.constant(0.0, dtype=tf.float32)
 
-    # sum_min_distances_g_to_s = tf.cond(
-    #     pred=tf.equal(g_non_zero, tf.constant(0)),
-    #     true_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
-    #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
-    #     false_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
-    #         false_fn=_sum_min_distances(g_coords, s_coords))
-    # )
-    #
-    # sum_min_distances_s_to_g = tf.cond(
-    #     pred=tf.equal(g_non_zero, tf.constant(0)),
-    #     true_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(0.0, dtype=tf.float32),
-    #         false_fn=lambda: tf.constant(float('inf'), dtype=tf.float32)),
-    #     false_fn=lambda: tf.cond(
-    #         pred=tf.equal(s_non_zero, tf.constant(0)),
-    #         true_fn=lambda: tf.constant(float('inf'), dtype=tf.float32),
-    #         false_fn=_sum_min_distances(s_coords, g_coords))
-    # )
+    # Special Case 2: Any non-zero in y_true_flat, but y_pred_flat is all zeros
+    if tf.reduce_any(tf.not_equal(y_true, 0.0)) and tf.reduce_all(
+            tf.equal(y_pred, 0.0)):
+        return tf.constant(float('inf'), dtype=tf.float32)
 
-    size_of_g = tf.cast(tf.reduce_sum(y_true), dtype=tf.float32)
+    # Standard BAHD calculation (handles remaining cases)
+    g_coords = tf.cast(tf.where(y_true > 0.5), dtype=tf.float16)
+    s_coords = tf.cast(tf.where(y_pred > 0.5), dtype=tf.float16)
+
+    size_of_g = tf.cast(tf.reduce_sum(y_true), dtype=tf.float16)
 
     sum_min_distances_g_to_s = _sum_min_distances(g_coords, s_coords)
     sum_min_distances_s_to_g = _sum_min_distances(s_coords, g_coords)
 
-    # sum_min_distances_g_to_s = tf.reduce_sum(sum_min_distances_g_to_s)
-    # sum_min_distances_s_to_g = tf.reduce_sum(sum_min_distances_s_to_g)
-
     bahd_left = (sum_min_distances_g_to_s + smooth) / (size_of_g + smooth)
     bahd_right = (sum_min_distances_s_to_g + smooth) / (size_of_g + smooth)
 
-    return bahd_left + bahd_right
+    bahd_value = tf.cast(bahd_left + bahd_right, dtype=tf.float32)
+
+    return bahd_value
 
 
 def surface_distance_metric(y_true, y_pred, voxel_spacing=(1.0, 1.0, 1.0)):
