@@ -282,8 +282,8 @@ def surface_distance_metric(tensor1: tf.Tensor,
 
     conn = generate_binary_structure(input_1.ndim, connectivity)
 
-    s = input_1 - binary_erosion(input_1, conn)
-    sprime = input_2 - binary_erosion(input_2, conn)
+    s = input_1 ^ binary_erosion(input_1, conn)
+    sprime = input_2 ^ binary_erosion(input_2, conn)
 
     dta = distance_transform_edt(~s, sampling)
     dtb = distance_transform_edt(~sprime, sampling)
