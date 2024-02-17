@@ -175,7 +175,7 @@ def densenet_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 8 * (2 ** (num_layers - 1))
+    num_filters = 16 + (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
