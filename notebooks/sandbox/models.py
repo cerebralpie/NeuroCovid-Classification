@@ -175,7 +175,7 @@ def densenet_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 16 + (2 ** (num_layers - 1))
+    num_filters = 16 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -239,7 +239,7 @@ def vgg_unet_model(
 
     # Encoding layers
     encoder = VGG19(input_tensor=x, weights="imagenet", include_top=False)
-    skip_connection_names = ["input_image", "block1_pool", "block2_pool", "block3_pool", "block4_pool"]
+    skip_connection_names = ["input_1", "block1_pool", "block2_pool", "block3_pool", "block4_pool"]
     encoder_output = encoder.get_layer("block5_pool").output
     num_layers = len(skip_connection_names)
 
@@ -249,7 +249,7 @@ def vgg_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 16 + (2 ** (num_layers - 1))
+    num_filters = 16 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
