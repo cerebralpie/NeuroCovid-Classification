@@ -4,7 +4,8 @@ import src.utils as nc_utils
 from tensorflow.keras import Input
 # from tensorflow.keras import backend as K
 from tensorflow.keras.layers import (
-    Conv2D, UpSampling2D, MaxPooling2D, Concatenate
+    Conv2D, UpSampling2D, MaxPooling2D, Concatenate, BatchNormalization,
+    Activation
 )
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications import (
@@ -16,8 +17,6 @@ def _conv2d_block(
         inputs: tf.Tensor,
         num_filters: int,
         kernel_size: tuple[int, int] = (3, 3),
-        strides: int = 1,
-        activation: str = 'relu',
         padding: str = 'same'
 ) -> tf.Tensor:
     """
@@ -29,9 +28,6 @@ def _conv2d_block(
         num_filters: The number of filters for each convolutional layer.
         kernel_size: The kernel size for each convolutional layer. Defaults to
                      (3, 3).
-        strides: The stride of the convolution. Defaults to 1
-        activation: The activation function to use after each convolution.
-                    Defaults to 'relu'.
         padding: The padding to use for the convolutional layers. Defaults to
                  'same'.
 
@@ -41,16 +37,17 @@ def _conv2d_block(
     # First convolutional layer
     x = Conv2D(filters=num_filters,
                kernel_size=kernel_size,
-               padding=padding,
-               strides=strides,
-               activation=activation)(inputs)
+               padding=padding)(inputs)
+    x = BatchNormalization()(x)
+    x = Activation("relu")(x)
+
 
     # Second convolutional layer
     x = Conv2D(filters=num_filters,
                kernel_size=kernel_size,
-               padding=padding,
-               strides=strides,
-               activation=activation)(x)
+               padding=padding)(inputs)
+    x = BatchNormalization()(x)
+    x = Activation("relu")(x)
 
     return x
 
