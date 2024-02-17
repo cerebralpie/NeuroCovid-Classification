@@ -34,6 +34,17 @@ def dice_coefficient(y_true, y_pred, smooth=1.0):
     y_true_flat = K.flatten(y_true)
     y_pred_flat = K.flatten(y_pred)
 
+    # Special Case 1: If both are all zeros
+    if tf.reduce_all(tf.equal(y_true_flat, 0.0)) and tf.reduce_all(
+            tf.equal(y_pred_flat, 0.0)):
+        return tf.constant(1.0, dtype=tf.float32)
+
+    # Special Case 2: Any non-zero in y_true_flat, but y_pred_flat is all zeros
+    if tf.reduce_any(tf.not_equal(y_true_flat, 0.0)) and tf.reduce_all(
+            tf.equal(y_pred_flat, 0.0)):
+        return tf.constant(0.0, dtype=tf.float32)
+
+    # Standard Dice Coefficient calculation (handles remaining cases)
     intersection = K.sum(y_true_flat * y_pred_flat)
 
     dice_numerator = 2.0 * intersection + smooth
@@ -94,19 +105,30 @@ def continuous_dice_coefficient(y_true: tf.Tensor,
         a CDC value of 0 signifies no overlap between the segmented image and
         the ground truth.
     """
-    y_true = K.flatten(y_true)
-    y_pred = K.flatten(y_pred)
+    y_true_flat = K.flatten(y_true)
+    y_pred_flat = K.flatten(y_pred)
 
-    y_true = tf.cast(y_true, tf.float32)
-    y_pred = tf.cast(y_pred, tf.float32)
+    y_true_flat = tf.cast(y_true_flat, tf.float32)
+    y_pred_flat = tf.cast(y_pred_flat, tf.float32)
 
-    sign_of_s = K.sign(y_pred)
-    size_of_g_intersect_s = K.sum(y_true * y_pred)
-    size_of_g = K.sum(y_true)
-    size_of_s = K.sum(y_pred)
+    # Special Case 1: If both are all zeros
+    if tf.reduce_all(tf.equal(y_true_flat, 0.0)) and tf.reduce_all(
+            tf.equal(y_pred_flat, 0.0)):
+        return tf.constant(1.0, dtype=tf.float32)
+
+    # Special Case 2: Any non-zero in y_true_flat, but y_pred_flat is all zeros
+    if tf.reduce_any(tf.not_equal(y_true_flat, 0.0)) and tf.reduce_all(
+            tf.equal(y_pred_flat, 0.0)):
+        return tf.constant(0.0, dtype=tf.float32)
+
+    # Standard CDC calculation (handles remaining cases)
+    sign_of_s = K.sign(y_pred_flat)
+    size_of_g_intersect_s = K.sum(y_true_flat * y_pred_flat)
+    size_of_g = K.sum(y_true_flat)
+    size_of_s = K.sum(y_pred_flat)
 
     c_numerator = size_of_g_intersect_s
-    c_denominator = K.sum(y_true * sign_of_s)
+    c_denominator = K.sum(y_true_flat * sign_of_s)
 
     c = tf.cond(
         pred=K.equal(c_denominator,
