@@ -267,8 +267,8 @@ def surface_distance_metric(tensor1: tf.Tensor,
                             tensor2: tf.Tensor,
                             sampling=1,
                             connectivity=1):
-    input1 = tensor1.as_numpy_array().astype(np.float32)
-    input2 = tensor2.as_numpy_array().astype(np.float32)
+    input1 = tensor1.numpy()
+    input2 = tensor2.numpy()
     input_1 = np.atleast_1d(input1.astype(np.bool_))
     input_2 = np.atleast_1d(input2.astype(np.bool_))
 
