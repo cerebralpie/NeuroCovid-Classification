@@ -41,7 +41,6 @@ def _conv2d_block(
     x = BatchNormalization()(x)
     x = Activation("relu")(x)
 
-
     # Second convolutional layer
     x = Conv2D(filters=num_filters,
                kernel_size=kernel_size,
@@ -116,12 +115,10 @@ def unet_model(
 
         x = _conv2d_block(inputs=x, num_filters=num_filters)
 
-    outputs = Conv2D(filters=num_classes,
-                     kernel_size=(1, 1),
-                     padding="same",
-                     activation=output_activation)(x)
+    x = Conv2D(filters=num_classes, kernel_size=(1, 1), padding="same")(x)
+    x = Activation(output_activation)(x)
 
-    model = Model(inputs=inputs, outputs=outputs)
+    model = Model(inputs=inputs, outputs=x)
 
     return model
 
