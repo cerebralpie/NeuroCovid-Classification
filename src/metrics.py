@@ -144,7 +144,7 @@ def cdc_loss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
 
 
 # Balanced Average Hausdorff Distance (BAHD)
-def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1) -> tf.Tensor:
+def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
     """
     For a binary segmentation task, calculate the Balanced Average Hausdorff
     Distance (BAHD) between a ground truth G (y_true) and a predicted
