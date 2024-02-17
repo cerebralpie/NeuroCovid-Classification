@@ -56,7 +56,7 @@ def _conv2d_block(
 def unet_model(
         input_shape: tuple[int, int, int],
         num_classes: int = 1,
-        num_filters: int = 64,
+        num_filters: int = 32,
         num_layers: int = 4,
         augment_data: bool = False
 ) -> Model:
@@ -177,7 +177,7 @@ def densenet_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 64 * (2 ** (num_layers - 1))
+    num_filters = 32 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -251,7 +251,7 @@ def vgg_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 64 * (2 ** (num_layers - 1))
+    num_filters = 32 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -327,7 +327,7 @@ def efficientnet_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 64 * (2 ** (num_layers - 1))
+    num_filters = 32 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -414,7 +414,7 @@ def inception_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 64 * (2 ** (num_layers - 1))
+    num_filters = 32 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -489,7 +489,7 @@ def mobilenetv2_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 64 * (2 ** (num_layers - 1))
+    num_filters = 32 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -564,7 +564,7 @@ def nasnet_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 64 * (2 ** (num_layers - 1))
+    num_filters = 32 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
@@ -644,7 +644,7 @@ def xception_unet_model(
         skip_connections.append(x_skip)
 
     # Bottleneck
-    num_filters = 64 * (2 ** (num_layers - 1))
+    num_filters = 32 * (2 ** (num_layers - 1))
     x = encoder_output
     x = _conv2d_block(inputs=x, num_filters=num_filters)
 
