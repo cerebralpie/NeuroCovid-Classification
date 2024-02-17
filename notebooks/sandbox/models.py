@@ -5,11 +5,13 @@ from tensorflow.keras import Input
 # from tensorflow.keras import backend as K
 from tensorflow.keras.layers import (
     Conv2D, UpSampling2D, MaxPooling2D, Concatenate, BatchNormalization,
-    Activation
+    Activation, Conv2DTranspose
 )
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications import (
-    DenseNet201, VGG19
+    DenseNet201, VGG19, EfficientNetV2L,
+    InceptionV3, MobileNetV2, NASNetLarge,
+    Xception
 )
 
 
@@ -246,6 +248,399 @@ def vgg_unet_model(
     skip_connections = []
     for i in range(num_layers):
         x_skip = encoder.get_layer(skip_connection_names[i]).output
+        skip_connections.append(x_skip)
+
+    # Bottleneck
+    num_filters = 16 * (2 ** (num_layers - 1))
+    x = encoder_output
+    x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    # Decoding layers
+    for skip_connection in reversed(skip_connections):
+        num_filters = num_filters // 2
+
+        x = UpSampling2D(size=(2, 2))(x)
+        x = Concatenate()([x, skip_connection])
+
+        x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    outputs = Conv2D(filters=num_classes,
+                     kernel_size=(1, 1),
+                     padding="same",
+                     activation=output_activation)(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    return model
+
+
+def efficientnet_unet_model(
+        input_shape: tuple[int, int, int],
+        num_classes: int = 1,
+        augment_data: bool = False
+) -> Model:
+    """
+    Create a U-Net model for image segmentation.
+
+    This function implements a U-Net model suitable for image segmentation
+    tasks. It uses a standard encoder-decoder architecture with skip connections
+    between corresponding layers to preserve spatial information. Data
+    augmentation can be applied before feeding the input into the network.
+
+    Args:
+        input_shape: A tuple representing the shape of the input images.
+        num_classes: The number of segmentation classes (including background).
+                     Defaults to 1.
+        num_filters: The initial number of filters in the first convolutional
+                     layer. Defaults to 16.
+        num_layers: The number of encoding/decoding layers (excluding
+                    bottleneck). Defaults to 4.
+        augment_data: Whether to apply data augmentation to the input dataset.
+                      Defaults to False.
+
+    Returns:
+        A TensorFlow keras Model instance representing the U-Net model.
+    """
+    if num_classes > 1:
+        output_activation = "softmax"
+    elif num_classes == 1:
+        output_activation = "sigmoid"
+    else:
+        raise ValueError("Invalid number of classes")
+
+    inputs = Input(shape=input_shape)
+    x = inputs
+
+    if augment_data:
+        x = nc_utils.get_data_augmentation_pipeline()(x)
+
+    # Encoding layers
+    encoder = EfficientNetV2L(input_tensor=x, weights="imagenet", include_top=False)
+    skip_connection_names = ["input_1", "block1d_project_activation", "block2g_expand_activation",
+                             "block4a_expand_activation", "block6a_expand_activation"]
+    encoder_output = encoder.get_layer("top_activation").output
+    num_layers = len(skip_connection_names)
+
+    skip_connections = []
+    for i in range(num_layers):
+        x_skip = encoder.get_layer(skip_connection_names[i]).output
+        skip_connections.append(x_skip)
+
+    # Bottleneck
+    num_filters = 16 * (2 ** (num_layers - 1))
+    x = encoder_output
+    x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    # Decoding layers
+    for skip_connection in reversed(skip_connections):
+        num_filters = num_filters // 2
+
+        x = UpSampling2D(size=(2, 2))(x)
+        x = Concatenate()([x, skip_connection])
+
+        x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    outputs = Conv2D(filters=num_classes,
+                     kernel_size=(1, 1),
+                     padding="same",
+                     activation=output_activation)(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    return model
+
+
+def inception_unet_model(
+        input_shape: tuple[int, int, int],
+        num_classes: int = 1,
+        augment_data: bool = False
+) -> Model:
+    """
+    Create a U-Net model for image segmentation.
+
+    This function implements a U-Net model suitable for image segmentation
+    tasks. It uses a standard encoder-decoder architecture with skip connections
+    between corresponding layers to preserve spatial information. Data
+    augmentation can be applied before feeding the input into the network.
+
+    Args:
+        input_shape: A tuple representing the shape of the input images.
+        num_classes: The number of segmentation classes (including background).
+                     Defaults to 1.
+        num_filters: The initial number of filters in the first convolutional
+                     layer. Defaults to 16.
+        num_layers: The number of encoding/decoding layers (excluding
+                    bottleneck). Defaults to 4.
+        augment_data: Whether to apply data augmentation to the input dataset.
+                      Defaults to False.
+
+    Returns:
+        A TensorFlow keras Model instance representing the U-Net model.
+    """
+    if num_classes > 1:
+        output_activation = "softmax"
+    elif num_classes == 1:
+        output_activation = "sigmoid"
+    else:
+        raise ValueError("Invalid number of classes")
+
+    inputs = Input(shape=input_shape)
+    x = inputs
+
+    if augment_data:
+        x = nc_utils.get_data_augmentation_pipeline()(x)
+
+    # Encoding layers
+    encoder = InceptionV3(input_tensor=x, weights="imagenet", include_top=False)
+    skip_connection_names = ["input_1", "activation_2", "activation_4", "mixed2", "mixed7"]
+    fix_skip_kernel3 = ["mixed7", "mixed10"]
+    fix_skip_kernel4 = ["activation_2", "mixed2"]
+    fix_skip_kernel5 = ["activation_4"]
+    encoder_output = encoder.get_layer("mixed10").output
+    encoder_output = Conv2DTranspose(encoder_output.shape[3], (3, 3),
+                                     strides=(1, 1), padding='valid') (encoder_output)
+    num_layers = len(skip_connection_names)
+
+    skip_connections = []
+    for i in range(num_layers):
+        x_skip = encoder.get_layer(skip_connection_names[i]).output
+        if skip_connection_names[i] in fix_skip_kernel3:
+            x_skip = Conv2DTranspose(x_skip.shape[3], (3, 3), strides=(1, 1), padding='valid')(x_skip)
+        elif skip_connection_names[i] in fix_skip_kernel4:
+            x_skip = Conv2DTranspose(x_skip.shape[3], (4, 4), strides=(1, 1), padding='valid')(x_skip)
+        elif skip_connection_names[i] in fix_skip_kernel5:
+            x_skip = Conv2DTranspose(x_skip.shape[3], (5, 5), strides=(1, 1), padding='valid')(x_skip)
+
+        skip_connections.append(x_skip)
+
+    # Bottleneck
+    num_filters = 16 * (2 ** (num_layers - 1))
+    x = encoder_output
+    x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    # Decoding layers
+    for skip_connection in reversed(skip_connections):
+        num_filters = num_filters // 2
+
+        x = UpSampling2D(size=(2, 2))(x)
+        x = Concatenate()([x, skip_connection])
+
+        x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    outputs = Conv2D(filters=num_classes,
+                     kernel_size=(1, 1),
+                     padding="same",
+                     activation=output_activation)(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    return model
+
+
+def mobilenetv2_unet_model(
+        input_shape: tuple[int, int, int],
+        num_classes: int = 1,
+        augment_data: bool = False
+) -> Model:
+    """
+    Create a U-Net model for image segmentation.
+
+    This function implements a U-Net model suitable for image segmentation
+    tasks. It uses a standard encoder-decoder architecture with skip connections
+    between corresponding layers to preserve spatial information. Data
+    augmentation can be applied before feeding the input into the network.
+
+    Args:
+        input_shape: A tuple representing the shape of the input images.
+        num_classes: The number of segmentation classes (including background).
+                     Defaults to 1.
+        num_filters: The initial number of filters in the first convolutional
+                     layer. Defaults to 16.
+        num_layers: The number of encoding/decoding layers (excluding
+                    bottleneck). Defaults to 4.
+        augment_data: Whether to apply data augmentation to the input dataset.
+                      Defaults to False.
+
+    Returns:
+        A TensorFlow keras Model instance representing the U-Net model.
+    """
+    if num_classes > 1:
+        output_activation = "softmax"
+    elif num_classes == 1:
+        output_activation = "sigmoid"
+    else:
+        raise ValueError("Invalid number of classes")
+
+    inputs = Input(shape=input_shape)
+    x = inputs
+
+    if augment_data:
+        x = nc_utils.get_data_augmentation_pipeline()(x)
+
+    # Encoding layers
+    encoder = MobileNetV2(input_tensor=x, weights="imagenet", include_top=False, alpha=0.35)
+    skip_connection_names = ["input_1", "block_1_expand_relu", "block_3_expand_relu", "block_6_expand_relu"]
+    encoder_output = encoder.get_layer("block_13_expand_relu").output
+    num_layers = len(skip_connection_names)
+
+    skip_connections = []
+    for i in range(num_layers):
+        x_skip = encoder.get_layer(skip_connection_names[i]).output
+        skip_connections.append(x_skip)
+
+    # Bottleneck
+    num_filters = 16 * (2 ** (num_layers - 1))
+    x = encoder_output
+    x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    # Decoding layers
+    for skip_connection in reversed(skip_connections):
+        num_filters = num_filters // 2
+
+        x = UpSampling2D(size=(2, 2))(x)
+        x = Concatenate()([x, skip_connection])
+
+        x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    outputs = Conv2D(filters=num_classes,
+                     kernel_size=(1, 1),
+                     padding="same",
+                     activation=output_activation)(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    return model
+
+
+def nasnet_unet_model(
+        input_shape: tuple[int, int, int],
+        num_classes: int = 1,
+        augment_data: bool = False
+) -> Model:
+    """
+    Create a U-Net model for image segmentation.
+
+    This function implements a U-Net model suitable for image segmentation
+    tasks. It uses a standard encoder-decoder architecture with skip connections
+    between corresponding layers to preserve spatial information. Data
+    augmentation can be applied before feeding the input into the network.
+
+    Args:
+        input_shape: A tuple representing the shape of the input images.
+        num_classes: The number of segmentation classes (including background).
+                     Defaults to 1.
+        num_filters: The initial number of filters in the first convolutional
+                     layer. Defaults to 16.
+        num_layers: The number of encoding/decoding layers (excluding
+                    bottleneck). Defaults to 4.
+        augment_data: Whether to apply data augmentation to the input dataset.
+                      Defaults to False.
+
+    Returns:
+        A TensorFlow keras Model instance representing the U-Net model.
+    """
+    if num_classes > 1:
+        output_activation = "softmax"
+    elif num_classes == 1:
+        output_activation = "sigmoid"
+    else:
+        raise ValueError("Invalid number of classes")
+
+    inputs = Input(shape=input_shape)
+    x = inputs
+
+    if augment_data:
+        x = nc_utils.get_data_augmentation_pipeline()(x)
+
+    # Encoding layers
+    encoder = NASNetLarge(input_tensor=x, weights="imagenet", include_top=False)
+    skip_connection_names = ["input_1", "activation_3", "activation_14", "activation_97", "activation_180"]
+    encoder_output = encoder.get_layer("activation_259").output
+    num_layers = len(skip_connection_names)
+
+    skip_connections = []
+    for i in range(num_layers):
+        x_skip = encoder.get_layer(skip_connection_names[i]).output
+        skip_connections.append(x_skip)
+
+    # Bottleneck
+    num_filters = 16 * (2 ** (num_layers - 1))
+    x = encoder_output
+    x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    # Decoding layers
+    for skip_connection in reversed(skip_connections):
+        num_filters = num_filters // 2
+
+        x = UpSampling2D(size=(2, 2))(x)
+        x = Concatenate()([x, skip_connection])
+
+        x = _conv2d_block(inputs=x, num_filters=num_filters)
+
+    outputs = Conv2D(filters=num_classes,
+                     kernel_size=(1, 1),
+                     padding="same",
+                     activation=output_activation)(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    return model
+
+
+def xception_unet_model(
+        input_shape: tuple[int, int, int],
+        num_classes: int = 1,
+        augment_data: bool = False
+) -> Model:
+    """
+    Create a U-Net model for image segmentation.
+
+    This function implements a U-Net model suitable for image segmentation
+    tasks. It uses a standard encoder-decoder architecture with skip connections
+    between corresponding layers to preserve spatial information. Data
+    augmentation can be applied before feeding the input into the network.
+
+    Args:
+        input_shape: A tuple representing the shape of the input images.
+        num_classes: The number of segmentation classes (including background).
+                     Defaults to 1.
+        num_filters: The initial number of filters in the first convolutional
+                     layer. Defaults to 16.
+        num_layers: The number of encoding/decoding layers (excluding
+                    bottleneck). Defaults to 4.
+        augment_data: Whether to apply data augmentation to the input dataset.
+                      Defaults to False.
+
+    Returns:
+        A TensorFlow keras Model instance representing the U-Net model.
+    """
+    if num_classes > 1:
+        output_activation = "softmax"
+    elif num_classes == 1:
+        output_activation = "sigmoid"
+    else:
+        raise ValueError("Invalid number of classes")
+
+    inputs = Input(shape=input_shape)
+    x = inputs
+
+    if augment_data:
+        x = nc_utils.get_data_augmentation_pipeline()(x)
+
+    # Encoding layers
+    encoder = Xception(input_tensor=x, weights="imagenet", include_top=False)
+    skip_connection_names = ["input_1", "block1_conv1_act", "block3_sepconv2_act", "block4_sepconv2_act",
+                             "block13_sepconv2_act"]
+    fix_skip_names = ["block1_conv1_act", "block3_sepconv2_act"]
+    encoder_output = encoder.get_layer("block14_sepconv2_act").output
+    num_layers = len(skip_connection_names)
+
+    skip_connections = []
+    for i in range(num_layers):
+        x_skip = encoder.get_layer(skip_connection_names[i]).output
+        if skip_connection_names[i] in fix_skip_names:
+            x_skip = Conv2DTranspose(x_skip.shape[3], (2, 2), strides=(1, 1), padding='valid')(x_skip)
+
         skip_connections.append(x_skip)
 
     # Bottleneck
