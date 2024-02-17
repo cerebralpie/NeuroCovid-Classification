@@ -5,8 +5,15 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 # from tensorflow_graphics.util import shape
 import numpy as np
-from scipy.ndimage import morphology
+from scipy.ndimage import (
+    distance_transform_edt,
+    generate_binary_structure,
+    binary_erosion
+    )
 import tensorflow_datasets as tfds
+
+# Allows tensor conversions to numpy
+tf.config.run_functions_eagerly(True)
 
 
 # Sørensen–Dice coefficient
@@ -268,18 +275,18 @@ def surface_distance_metric(tensor1: tf.Tensor,
                             tensor2: tf.Tensor,
                             sampling=1,
                             connectivity=1):
-    input1 = tfds.as_numpy()
-    input2 = tfds.as_numpy()
+    input1 = tensor1.numpy()
+    input2 = tensor2.numpy()
     input_1 = np.atleast_1d(input1.astype(np.bool_))
     input_2 = np.atleast_1d(input2.astype(np.bool_))
 
-    conn = morphology.generate_binary_structure(input_1.ndim, connectivity)
+    conn = generate_binary_structure(input_1.ndim, connectivity)
 
-    s = input_1 - morphology.binary_erosion(input_1, conn)
-    sprime = input_2 - morphology.binary_erosion(input_2, conn)
+    s = input_1 - binary_erosion(input_1, conn)
+    sprime = input_2 - binary_erosion(input_2, conn)
 
-    dta = morphology.distance_transform_edt(~s, sampling)
-    dtb = morphology.distance_transform_edt(~sprime, sampling)
+    dta = distance_transform_edt(~s, sampling)
+    dtb = distance_transform_edt(~sprime, sampling)
 
     sds = np.concatenate([np.ravel(dta[sprime != 0]), np.ravel(dtb[s != 0])])
     avg_distance = sds.mean()
