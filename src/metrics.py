@@ -4,6 +4,8 @@
 import tensorflow as tf
 from tensorflow.keras import backend as K
 # from tensorflow_graphics.util import shape
+import numpy as np
+from scipy.ndimage import morphology
 
 
 # Sørensen–Dice coefficient
@@ -261,35 +263,24 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
     return bahd_value
 
 
-def surface_distance_metric(y_true, y_pred, voxel_spacing=(1.0, 1.0, 1.0)):
-    """
-    Calculate the average surface distance between two segmentation masks.
+def avg_surface_distance(tensor1: tf.Tensor,
+                         tensor2: tf.Tensor,
+                         sampling=1,
+                         connectivity=1):
+    input1 = tensor1.as_numpy_array().astype(np.float32)
+    input2 = tensor2.as_numpy_array().astype(np.float32)
+    input_1 = np.atleast_1d(input1.astype(np.bool_))
+    input_2 = np.atleast_1d(input2.astype(np.bool_))
 
-    Args:
-        y_true: Ground truth segmentation mask.
-        y_pred: Predicted segmentation mask.
-        voxel_spacing: Tuple specifying the voxel spacing in each dimension
-        (x, y, z).
-    Returns:
-        The Average surface distance.
-    """
-    # Ensure tensors have the same shape
-    tf.debugging.assert_shapes([(y_true, ('B', 'H', 'W', 'D')),
-                                (y_pred, ('B', 'H', 'W', 'D'))])
+    conn = morphology.generate_binary_structure(input_1.ndim, connectivity)
 
-    # Flatten the masks
-    y_true_flat = tf.reshape(y_true, [-1])
-    y_pred_flat = tf.reshape(y_pred, [-1])
+    s = input_1 - morphology.binary_erosion(input_1, conn)
+    sprime = input_2 - morphology.binary_erosion(input_2, conn)
 
-    # Find the surface voxels
-    true_surface = tf.cast(tf.equal(y_true_flat, 1), tf.float32)
-    pred_surface = tf.cast(tf.equal(y_pred_flat, 1), tf.float32)
+    dta = morphology.distance_transform_edt(~s, sampling)
+    dtb = morphology.distance_transform_edt(~sprime, sampling)
 
-    # Compute distance transform
-    true_distance = tf.nn.morphology.distance_transform_edt(tf.cast(true_surface, tf.uint8), voxel_spacing)
-    pred_distance = tf.nn.morphology.distance_transform_edt(tf.cast(pred_surface, tf.uint8), voxel_spacing)
+    sds = np.concatenate([np.ravel(dta[sprime != 0]), np.ravel(dtb[s != 0])])
+    avg_distance = sds.mean()
 
-    # Compute average surface distance
-    avg_surface_distance = tf.reduce_sum(tf.abs(true_distance - pred_distance)) / tf.reduce_sum(true_surface)
-
-    return avg_surface_distance
+    return avg_distance
