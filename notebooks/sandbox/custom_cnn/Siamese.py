@@ -3,34 +3,30 @@ from tensorflow.keras.layers import (
     Input, Dense, InputLayer,
     Conv2D, MaxPooling2D, UpSampling2D,
     InputLayer, Concatenate, Flatten,
-    Reshape, Lambda, Embedding, dot
+    Reshape, Lambda, Embedding, dot,
+    Dropout, GlobalAveragePooling2D
 )
 from tensorflow.keras.models import Model, load_model, Sequential
 
 
-def siamese_model():
+def build_siamese_model(inputShape, embeddingDim=48):
+    # specify the inputs for the feature extractor network
+    inputs = Input(inputShape)
 
-    # Encoder
-    input_layer = Input((256, 256, 3))
-    layer1 = Conv2D(16, (3, 3), activation='relu', padding='same')(input_layer)
-    layer2 = MaxPooling2D((2, 2), padding='same')(layer1)
-    layer3 = Conv2D(8, (3, 3), activation='relu', padding='same')(layer2)
-    layer4 = MaxPooling2D((2, 2), padding='same')(layer3)
-    layer5 = Flatten()(layer4)
-    embeddings = Dense(16, activation=None)(layer5)
-    norm_embeddings = tf.nn.l2_normalize(embeddings, axis=-1)
+    # define the first set of CONV => RELU => POOL => DROPOUT layers
+    x = Conv2D(64, (2, 2), padding="same", activation="relu")(inputs)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Dropout(0.3)(x)
 
-    # Model
-    model = Model(inputs=input_layer, outputs=norm_embeddings)
+    # second set of CONV => RELU => POOL => DROPOUT layers
+    x = Conv2D(64, (2, 2), padding="same", activation="relu")(x)
+    x = MaxPooling2D(pool_size=2)(x)
+    x = Dropout(0.3)(x)
 
-    input1 = Input((256, 256, 3))
-    input2 = Input((256, 256, 3))
-
-    left_model = model(input1)
-    right_model = model(input2)
-
-    dot_product = dot([left_model, right_model], axes=3, normalize=False)
-
-    siamese = Model(inputs=[input1, input2], outputs=dot_product)
-
-    return siamese
+    # prepare the final outputs
+    pooledOutput = GlobalAveragePooling2D()(x)
+    outputs = Dense(embeddingDim)(pooledOutput)
+    # build the model
+    model = Model(inputs, outputs)
+    # return the model to the calling function
+    return model
