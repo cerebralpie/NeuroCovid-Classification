@@ -2,7 +2,6 @@ import tensorflow as tf
 
 import src.utils as nc_utils
 from tensorflow.keras import Input
-# from tensorflow.keras import backend as K
 from tensorflow.keras.layers import (
     Conv2D, UpSampling2D, MaxPooling2D, Concatenate, BatchNormalization,
     Activation, Conv2DTranspose
@@ -590,6 +589,9 @@ def nasnet_unet_model(
     skip_connections = []
     for i in range(num_layers):
         x_skip = encoder.get_layer(skip_connection_names[i]).output
+        if skip_connection_names[i] == "activation_3":
+            x_skip = Conv2DTranspose(x_skip.shape[3], (2, 2), strides=(1, 1), padding='valid')(x_skip)
+
         skip_connections.append(x_skip)
 
     # Bottleneck
