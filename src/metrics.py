@@ -11,7 +11,7 @@ from scipy.ndimage import (
     )
 
 # Allows tensor conversions to numpy
-#tf.config.run_functions_eagerly(True)
+tf.config.run_functions_eagerly(True)
 
 
 # Sørensen–Dice coefficient
