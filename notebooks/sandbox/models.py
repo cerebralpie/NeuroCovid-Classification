@@ -14,6 +14,12 @@ from tensorflow.keras.applications import (
 )
 
 DENSENET_SIZE = 707
+NASNET_SIZE = 1039
+EFFICIENTNETV2_SIZE = 1028
+INCEPTIONV3_SIZE = 311
+MOBILENETV2_SIZE = 154
+VGG19_SIZE = 19
+XCEPTION_SIZE = 132
 
 
 
@@ -206,6 +212,7 @@ def densenet_unet_model(
     model = Model(inputs=inputs, outputs=outputs)
 
     return model
+
 
 def vgg_unet_model(
         input_shape: tuple[int, int, int],
