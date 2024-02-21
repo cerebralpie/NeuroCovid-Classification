@@ -665,7 +665,7 @@ def xception_unet_model(
     if augment_data:
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
-    x = tf.keras.applications.xception.preprocess_input(x)
+    #x = tf.keras.applications.xception.preprocess_input(x)
 
     # Encoding layers
     encoder = Xception(input_tensor=x, weights="imagenet", include_top=False)
