@@ -591,7 +591,7 @@ def nasnet_unet_model(
     encoder_output = encoder.get_layer("activation_259").output
     num_layers = len(skip_connection_names)
 
-    encoder.trainable = False
+    #encoder.trainable = False
 
     skip_connections = []
     for i in range(num_layers):
@@ -675,7 +675,7 @@ def xception_unet_model(
     encoder_output = encoder.get_layer("block14_sepconv2_act").output
     num_layers = len(skip_connection_names)
 
-    encoder.trainable = False
+    #encoder.trainable = False
 
     skip_connections = []
     for i in range(num_layers):
