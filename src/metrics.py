@@ -277,11 +277,11 @@ def avg_surface_distance(tensor1: tf.Tensor,
                          tensor2: tf.Tensor):
     input1 = tensor1.numpy()
     input2 = tensor2.numpy()
-    input_1 = input1.astype(np.bool_)
-    input_2 = input2.astype(np.bool_)
-    input_1_reshaped = input_1.reshape(4, 384, 384)
-    input_2__reshaped = input_2.reshape(4, 384, 384)
-    distances_dict = compute_surface_distances(input1, input2, spacing_mm=(1, 1, 1))
+    input1_bool = np.atleast_1d(input1.astype(np.bool_))
+    input2_bool = np.atleast_1d(input2.astype(np.bool_))
+    # input_1_reshaped = input_1.reshape(4, 384, 384)
+    # input_2__reshaped = input_2.reshape(4, 384, 384)
+    distances_dict = compute_surface_distances(input1_bool, input2_bool, spacing_mm=(1, 1))
     avg_distance = compute_average_surface_distance(distances_dict)
 
     return avg_distance
