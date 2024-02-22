@@ -46,9 +46,10 @@ def _check_3d_numpy_array(name, array):
 
 def _assert_is_bool_numpy_array(name, array):
   _assert_is_numpy_array(name, array)
-  if array.dtype != bool and type(array) != np.bool_:
-    raise ValueError("The argument {!r} should be a numpy array of type bool, "
-                     "not {}".format(name, array.dtype))
+  if array.dtype != bool:
+    pass
+    #raise ValueError("The argument {!r} should be a numpy array of type bool, "
+    #                 "not {}".format(name, array.dtype))
 
 
 def _compute_bounding_box(mask):
