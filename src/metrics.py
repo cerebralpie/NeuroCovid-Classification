@@ -15,7 +15,7 @@ from src.external.surface_distance.metrics import (
 )
 
 # Allows tensor conversions to numpy
-tf.config.run_functions_eagerly(True)
+#tf.config.run_functions_eagerly(True)
 
 
 # Sørensen–Dice coefficient
@@ -275,16 +275,17 @@ def bahd(y_true: tf.Tensor, y_pred: tf.Tensor, smooth=1.0) -> tf.Tensor:
 
 def avg_surface_distance(tensor1: tf.Tensor,
                          tensor2: tf.Tensor):
-    input1 = tensor1.numpy()
-    input2 = tensor2.numpy()
-    input1_bool = np.atleast_1d(input1.astype(np.bool_))
-    input2_bool = np.atleast_1d(input2.astype(np.bool_))
-    input1_reshaped = input1_bool.reshape(4, 384, 384)
-    input2_reshaped = input2_bool.reshape(4, 384, 384)
-    distances_dict = compute_surface_distances(input1_reshaped, input2_reshaped, spacing_mm=(1, 1, 1))
-    avg_distance = compute_average_surface_distance(distances_dict)
-
-    return avg_distance
+    return 1
+    # input1 = tensor1.numpy()
+    # input2 = tensor2.numpy()
+    # input1_bool = np.atleast_1d(input1.astype(np.bool_))
+    # input2_bool = np.atleast_1d(input2.astype(np.bool_))
+    # input1_reshaped = input1_bool.reshape(4, 384, 384)
+    # input2_reshaped = input2_bool.reshape(4, 384, 384)
+    # distances_dict = compute_surface_distances(input1_reshaped, input2_reshaped, spacing_mm=(1, 1, 1))
+    # avg_distance = compute_average_surface_distance(distances_dict)
+    #
+    # return avg_distance
 
 # def surface_distance_metric(tensor1: tf.Tensor,
 #                             tensor2: tf.Tensor,
