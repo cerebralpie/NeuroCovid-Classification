@@ -174,7 +174,7 @@ def densenet_unet_model(
     if augment_data:
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
-    x = tf.keras.applications.densenet.preprocess_input(x)
+    #x = tf.keras.applications.densenet.preprocess_input(x)
 
     # Encoding layers
     encoder = DenseNet201(input_tensor=x, weights="imagenet", include_top=False)
@@ -182,7 +182,7 @@ def densenet_unet_model(
     encoder_output = encoder.get_layer("relu").output
     num_layers = len(skip_connection_names)
 
-    encoder.trainable = False
+    #encoder.trainable = False
 
     skip_connections = []
     for i in range(num_layers):
@@ -254,7 +254,7 @@ def vgg_unet_model(
     if augment_data:
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
-    x = tf.keras.applications.vgg19.preprocess_input(x)
+    #x = tf.keras.applications.vgg19.preprocess_input(x)
 
     # Encoding layers
     encoder = VGG19(input_tensor=x, weights="imagenet", include_top=False)
@@ -262,7 +262,7 @@ def vgg_unet_model(
     encoder_output = encoder.get_layer("block5_pool").output
     num_layers = len(skip_connection_names)
 
-    encoder.trainable = False
+    #encoder.trainable = False
 
     skip_connections = []
     for i in range(num_layers):
@@ -333,7 +333,7 @@ def efficientnet_unet_model(
     if augment_data:
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
-    x = tf.keras.applications.efficientnet_v2.preprocess_input(x)
+    #x = tf.keras.applications.efficientnet_v2.preprocess_input(x)
 
     # Encoding layers
     encoder = EfficientNetV2L(input_tensor=x, weights="imagenet", include_top=False)
@@ -342,7 +342,7 @@ def efficientnet_unet_model(
     encoder_output = encoder.get_layer("top_activation").output
     num_layers = len(skip_connection_names)
 
-    encoder.trainable = False
+    #encoder.trainable = False
 
     skip_connections = []
     for i in range(num_layers):
@@ -413,7 +413,7 @@ def inception_unet_model(
     if augment_data:
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
-    x = tf.keras.applications.inception_v3.preprocess_input(x)
+    #x = tf.keras.applications.inception_v3.preprocess_input(x)
 
     # Encoding layers
     encoder = InceptionV3(input_tensor=x, weights="imagenet", include_top=False)
@@ -426,7 +426,7 @@ def inception_unet_model(
                                      strides=(1, 1), padding='valid') (encoder_output)
     num_layers = len(skip_connection_names)
 
-    encoder.trainable = False
+    #encoder.trainable = False
 
     skip_connections = []
     for i in range(num_layers):
@@ -504,7 +504,7 @@ def mobilenetv2_unet_model(
     if augment_data:
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
-    x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
+    #x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
 
     # Encoding layers
     encoder = MobileNetV2(input_tensor=x, weights="imagenet", include_top=False, alpha=0.35)
@@ -512,7 +512,7 @@ def mobilenetv2_unet_model(
     encoder_output = encoder.get_layer("block_13_expand_relu").output
     num_layers = len(skip_connection_names)
 
-    encoder.trainable = False
+    #encoder.trainable = False
 
     skip_connections = []
     for i in range(num_layers):
@@ -583,7 +583,7 @@ def nasnet_unet_model(
     if augment_data:
         x = nc_utils.get_data_augmentation_pipeline()(x)
 
-    x = tf.keras.applications.nasnet.preprocess_input(x)
+    #x = tf.keras.applications.nasnet.preprocess_input(x)
 
     # Encoding layers
     encoder = NASNetLarge(input_tensor=x, weights="imagenet", include_top=False)
