@@ -6,6 +6,7 @@ import os
 import tensorflow as tf
 import tensorflow_io as tfio
 import cv2
+import segmentation_models as sm
 from PIL import Image
 from PIL import UnidentifiedImageError
 from sklearn.model_selection import train_test_split
@@ -200,7 +201,8 @@ def read_image(image_path: str,
 
 def get_tensorflow_dataset(image_mask_paths: tuple[list[str], list[str]],
                            image_size: int,
-                           batch_size: int = 32) -> tf.data.Dataset:
+                           batch_size: int = 32,
+                           backbone: str = 'None') -> tf.data.Dataset:
     """
     Generate a TensorFlow dataset from given image and mask paths.
 
@@ -264,6 +266,7 @@ def get_tensorflow_dataset(image_mask_paths: tuple[list[str], list[str]],
                                     image_shape=(image_size, image_size),
                                     grayscale=True)
 
+
             return image_array, mask_array
 
         image_tensor, mask_tensor = tf.numpy_function(
@@ -273,6 +276,10 @@ def get_tensorflow_dataset(image_mask_paths: tuple[list[str], list[str]],
         )
         image_tensor.set_shape([image_size, image_size, 3])
         mask_tensor.set_shape([image_size, image_size, 1])
+
+        if backbone != 'None':
+            preprocess_input = sm.get_preprocessing(backbone)
+            image_tensor = preprocess_input(image_tensor)
 
         return image_tensor, mask_tensor
 

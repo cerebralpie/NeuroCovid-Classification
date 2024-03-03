@@ -1,10 +1,14 @@
+import os
+
+os.environ['SM_FRAMEWORK'] = 'tf.keras'
+
 import segmentation_models as sm
 from tensorflow.keras.models import Model
 
 
-def vgg_unet(input_shape: tuple[int, int, int],
-               num_classes: int = 1,
-               output_activation: str = 'sigmoid'
+def vgg_unet_model(input_shape: tuple[int, int, int],
+                   num_classes: int = 1,
+                   output_activation: str = 'sigmoid'
 ) -> Model:
 
     model = sm.Unet('vgg19', classes=num_classes, input_shape=input_shape,
@@ -13,9 +17,9 @@ def vgg_unet(input_shape: tuple[int, int, int],
     return model
 
 
-def densenet_unet(input_shape: tuple[int, int, int],
-                  num_classes: int = 1,
-                  output_activation: str = 'sigmoid'
+def densenet_unet_model(input_shape: tuple[int, int, int],
+                        num_classes: int = 1,
+                        output_activation: str = 'sigmoid'
 ) -> Model:
 
     model = sm.Unet('densenet201', classes=num_classes, input_shape=input_shape,
